@@ -18,7 +18,6 @@ Table of Content
    * [Linux Terminal](#linux-terminal)
 * [5 Downloading Images to Ameba-D](#5-downloading-images-to-ameba-d)
 * [6 Release Notes](#5-release-notes)
-   * [Known Issues](#known-issues) 
 
 
 # 1 Getting Started
@@ -42,6 +41,10 @@ The hardware block diagram of Ameba-D demo board is shown below.
 Documentation for latest version: [RTL8721Dx Series](https://www.realmcu.com/en/Home/DownloadList/add965ea-d661-4a63-9514-d18b6912f8ab)
 
 # 3 Environment Setup 
+
+## Toolchain
+	
+Toolchains for windows and linux are supported for now.
 
 ## Windows
 
@@ -190,11 +193,6 @@ Assuming that the ImageTool on PC is a server, it sends images files to Ameba (c
 
 > Note: 
 > For Bluetooth Examples, currently we only support `BT_peripheral` , `BT_central` , `BT_scatternet` , and `BT_config` four examples.
-
-## Known Issues
-
-1. `mbed_flash_winbond_block_protect` example result expected to be different from `readme.txt`. This is caused by the brand of flash chip might be different on different versions of module or dev board.
-2. Execute "Tickps a" command, then connect the board to AP. Executes "Tickps r debug" command then shut down the AP. Upin connection to AP is lost, the log of "DBG: Sleep blocked because Dev 1 busy" will keep appearing multiple times until it stop. The board will hang and could not enter any command to connect another AP.
 
 ## Vesion Sync
 
