@@ -1,0 +1,46 @@
+
+include $(MAKE_INCLUDE_GEN)
+
+.PHONY: all clean
+
+
+#*****************************************************************************#
+#                            OBJECT FILE LIST                                 #
+#*****************************************************************************#
+OBJS =
+
+#*****************************************************************************#
+#                        RULES TO GENERATE TARGETS                            #
+#*****************************************************************************#
+
+# Define the Rules to build the core targets
+all:
+
+ifneq ($(CONFIG_TOOLCHAIN_ARM_GCC), y)
+	@if [ ! -f $(KM4_BUILDDIR)/toolchain/asdk/$(TOOLCHAINNAME) ]; then \
+		echo "Download Toolchain And Extract To $(TOOLCHAINDIR_OS). Only Download And Extract Once"; \
+		if wget -P $(KM4_BUILDDIR)/toolchain/asdk $(TOOLCHAINURL); then \
+			echo "Download $(TOOLCHAINNAME) Success"; \
+		else \
+			echo "Download Failed. Please Check If The Network Connection Is Accessible."; \
+			exit 1; \
+		fi; \
+		echo "Download End And Then Extract..."; \
+		$(MKDIR) -p $(TOOLCHAINDIR_OS); \
+		tar -jxvf $(KM4_BUILDDIR)/toolchain/asdk/$(TOOLCHAINNAME) -C $(TOOLCHAINDIR_OS)/; \
+		echo "INSTALL SUCCESS"; \
+	else \
+		$(MKDIR) -p $(TOOLCHAINDIR_OS); \
+		tar -jxvf $(KM4_BUILDDIR)/toolchain/asdk/$(TOOLCHAINNAME) -C $(TOOLCHAINDIR_OS)/; \
+	fi
+
+else
+	$(MKDIR) -p cygwin
+	tar -zxvf ../../../tools/arm-none-eabi-gcc/4.8.3-2014q1.tar.gz -C cygwin/
+endif
+
+#*****************************************************************************#
+#                          GENERATE OBJECT FILES                              #
+#*****************************************************************************#
+CORE_TARGETS: $(OBJS)
+
