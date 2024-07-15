@@ -1,14 +1,14 @@
 
 ![Realtek-logo](https://logos-download.com/wp-content/uploads/2016/05/Realtek_logo_logotype.png)
 
-For any questions, please visit [AmebaIoT officail website](https://www.amebaiot.com/en/) and AmebaIoT [forum](https://forum.amebaiot.com/) to get more information.
+For any questions, please visit Realtek official website [RealMCU](https://www.realmcu.com/) to get more information.
 
 Table of Content
 =================
 
 * [1 Getting Started](#1-getting-started)
   * [Knowledge about AmebaD Demo Board](#knowledge-about-amebad-demo-board)
-* [2 Documentation]
+* [2 Documentation](#2-documentation)
 * [3 Environment Setup](#3-environment-setup)
   * [Windows](#windows)
   * [Linux](#linux)
@@ -62,7 +62,7 @@ Installation at CMD "setup-2.912.x86.exe --allow-unsupported-windows --site http
 ## Linux
 
 > Note:
-   For Linux, please refer to [AN0400 Realtek Ameba-D Application Note.pdf](https://www.amebaiot.com/en/sdk-download-manual-8722dm/) on AmebaIoT officail website to build the GCC development environment.  
+   For Linux, please refer to [RTL8721Dx Application Note (PDF)](https://www.realmcu.com/en/Home/DownloadList/add965ea-d661-4a63-9514-d18b6912f8ab) to build the GCC development environment.  
 
 ## Connection to Log Console
 
@@ -194,7 +194,7 @@ Assuming that the ImageTool on PC is a server, it sends images files to Ameba (c
 ## Known Issues
 
 1. `mbed_flash_winbond_block_protect` example result expected to be different from `readme.txt`. This is caused by the brand of flash chip might be different on different versions of module or dev board.
-2. Execute "Tickps a" command,  then connect  the baord to AP. Executes "Tickps r debug" command then shut down the AP. Upin connection to AP is lost, the log of "DBG: Sleep blocked because Dev 1 busy" will keep appearing multiple times until it stop. The board will hang and could not enter any command to connect another AP.
+2. Execute "Tickps a" command, then connect the board to AP. Executes "Tickps r debug" command then shut down the AP. Upin connection to AP is lost, the log of "DBG: Sleep blocked because Dev 1 busy" will keep appearing multiple times until it stop. The board will hang and could not enter any command to connect another AP.
 
 ## Vesion Sync
 
