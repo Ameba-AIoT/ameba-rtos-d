@@ -38,7 +38,7 @@ The hardware block diagram of Ameba-D demo board is shown below.
 
 # 2 Documentation
 
-Documentation for latest version: [RTL8721Dx Series](https://www.realmcu.com/en/Home/DownloadList/add965ea-d661-4a63-9514-d18b6912f8ab)
+Documentation for latest version: [RTL872xCS/RTL872xD Series](https://www.realmcu.com/en/Home/DownloadList/a6248c82-7c9a-4f79-bebf-0df240726c4d)
 
 # 3 Environment Setup 
 
@@ -65,7 +65,7 @@ Installation at CMD "setup-2.912.x86.exe --allow-unsupported-windows --site http
 ## Linux
 
 > Note:
-   For Linux, please refer to [RTL8721Dx Application Note (PDF)](https://www.realmcu.com/en/Home/DownloadList/add965ea-d661-4a63-9514-d18b6912f8ab) to build the GCC development environment.  
+   For Linux, please refer to [Ameba-D Application Note(PDF)](https://www.realmcu.com/en/Home/DownloadList/a6248c82-7c9a-4f79-bebf-0df240726c4d) to build the GCC development environment.  
 
 ## Connection to Log Console
 
