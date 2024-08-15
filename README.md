@@ -1,6 +1,8 @@
 
 ![Realtek-logo](https://logos-download.com/wp-content/uploads/2016/05/Realtek_logo_logotype.png)
 
+* [中文版](./README_CN.md)
+
 For any questions, please visit Realtek official website [RealMCU](https://www.realmcu.com/) to get more information.
 
 Table of Content
@@ -17,7 +19,7 @@ Table of Content
    * [Windows GCC](#windows-gcc)
    * [Linux Terminal](#linux-terminal)
 * [5 Downloading Images to Ameba-D](#5-downloading-images-to-ameba-d)
-* [6 Release Notes](#5-release-notes)
+* [6 Release Notes](#6-release-notes)
 
 
 # 1 Getting Started
@@ -30,11 +32,13 @@ Table of Content
 The hardware block diagram of Ameba-D demo board is shown below. 
 
    - USB TO UART: power supply and log print. 
-   - The baudrate is 115200bps 
+   - LOG UART: the baudrate is 115200bps 
    - SWD: SWD interface, used to download images and debug with IAR. 
    - Reset button: reset Ameba-D to run firmware after IAR completes download.
 
-   ![image2](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_3.png)
+<p align="center">
+	<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_3.png" width="600" />
+</p>
 
 # 2 Documentation
 
@@ -55,12 +59,16 @@ Toolchains for windows and linux are supported for now.
 
 1. 32-bit ``Cygwin`` is supported both for 32-bit Windows and 64-bit Windows.
 > Note: If you can not installed 32-bit Cygwin, refer to [Q: How can I install the last Cygwin version for an old, unsupported Windows?](https://cygwin.com/install.html). 
-Installation at CMD "setup-2.912.x86.exe --allow-unsupported-windows --site http://ctm.crouchingtigerhiddenfruitbat.org/pub/cygwin/circa/2022/11/23/063457"
-3. During the installation of ``Cygwin`` package, include `Devel -> make` and `Math -> bc` utilities on the Select Packages page, as below shows.
+Installation at CMD:
+```
+setup-2.912.x86.exe --allow-unsupported-windows --site http://ctm.crouchingtigerhiddenfruitbat.org/pub/cygwin/circa/2022/11/23/063457
+```
+2. During the installation of ``Cygwin`` package, include `Devel -> make` and `Math -> bc` utilities on the Select Packages page, as below shows.
 
-   ![getstart0](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_1.png)
-
-   ![getstart1](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_2.png)
+	<p align="center">
+	  <img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_1.png" width="400" />
+	  <img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_2.png" width="400" />
+	</p>
 
 ## Linux
 
@@ -74,8 +82,9 @@ Installation at CMD "setup-2.912.x86.exe --allow-unsupported-windows --site http
 1) Select the corresponding serial uart configure communicate parameter and then open it. 
 2) Press the Reset button on Ameba-D board. Some messages can be found in the terminal.
 
-   ![image3](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_4.png)
-
+	<p align = "center">    
+		<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_4.png" width="500" />
+	</p>
 
 # 4 Building the First Project on Ameba-D
 
@@ -84,7 +93,7 @@ Installation at CMD "setup-2.912.x86.exe --allow-unsupported-windows --site http
 The following steps are for first-time developer to build GCC project, under existing RTK SDK. 
 
 > **Building Code** This section illustrates how to build SDK. 
-> First, you need to switch to GCC project directory. For Windows, open ``Cygwin`` terminal and use ``$ cd`` command to change directory to KM0 or KM4 project directory of Ameba-D SDK. 
+> First, you need to switch to GCC project directory. For Windows, open ``Cygwin`` terminal and use ``cd`` command to change directory to KM0 or KM4 project directory of Ameba-D SDK. 
 
 > Note:
    You need to replace the ``{path}`` to your own SDK location, and add ``cygdrive`` prefix in front of the SDK location, so that Cygwin can access your file system.
@@ -93,27 +102,35 @@ The following steps are for first-time developer to build GCC project, under exi
 cd /cygdrive/{path}/project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp
 cd /cygdrive/{path}/project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp
 ```
-To build SDK for normal image, simply use ``$ make all`` command under the corresponding project directories on Cygwin (Windows). 
+To build SDK for normal image, simply use ``make all`` command under the corresponding project directories on Cygwin (Windows). 
 
-KM0 project For KM0 project, if the terminal contains ``km0_image2_all.bin`` and ``Image manipulating end`` output message, it means that the image has been built successfully, as below shows.
+For KM0 project, if the terminal contains ``km0_image2_all.bin`` and ``Image manipulating end`` output message, it means that the image has been built successfully, as below shows.
 
-![image4](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_5.png)
+<p align = "center">    
+	<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_5.png" width="500" />
+</p>
 
-> If somehow it is built failed, type ``$ make clean`` to clean and then redo the make procedure. 
+> If somehow it is built failed, type ``make clean`` to clean and then redo the make procedure. 
 
 > After successfully built, the image file is located in ``project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp/asdk/image`` , as below shows.
 
-![image5](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_6.png)
+<p align = "center">    
+	<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_6.png" width="500" />
+</p>
 
-KM4 project For KM4 project, if the terminal contains ``km0_image2_all.bin`` and ``Image manipulating end`` output message, it means that the image has been built successfully, as below shows.
+For KM4 project, if the terminal contains ``km4_image2_all.bin`` and ``Image manipulating end`` output message, it means that the image has been built successfully, as below shows.
 
-![image6](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_7.png)
+<p align = "center">    
+	<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_7.png" width="500" />
+</p>
 
-> If somehow it built failed, type ``$ make clean`` to clean and then redo the make procedure. 
+> If somehow it built failed, type ``make clean`` to clean and then redo the make procedure. 
 
 > After built successfully, the image file is located in ``project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp/asdk/image``, as below shows.
 
-![image7](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_8.png)
+<p align = "center">    
+	<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_8.png" width="500" />
+</p>
 
 ## Linux Terminal
 
@@ -126,17 +143,22 @@ cd /{path}/project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp
 cd /{path}/project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp
 ```
 
-2. Under the corresponding directories, execute``$ make all`` to build images. You may start with ``project_lp`` first followed by ``project_hp``.
+2. Under the corresponding directories, execute``make all`` to build images. You may start with ``project_lp`` first followed by ``project_hp``.
    - **KM0 project (project_lp)**
      - For KM0 project, if the terminal contains ``km0_image2_all.bin`` and ``Image manipulating end`` output message, it means that the image has been built successfully.
-     > If somehow it is built failed, type ``$ make clean`` to clean and then redo the make procedure. 
+     > If somehow it is built failed, type ``make clean`` to clean and then redo the make procedure. 
+
      > After successfully built, the image file is located in ``project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp/asdk/image``.
    
    - **KM4 project (project_hp)**
-     - For KM4 project, if the terminal contains ``km0_image2_all.bin`` and ``Image manipulating end`` output message, it means that the image has been built successfully.
-     > If somehow it built failed, type ``$ make clean`` to clean and then redo the make procedure. 
+     - For KM4 project, if the terminal contains ``km4_image2_all.bin`` and ``Image manipulating end`` output message, it means that the image has been built successfully.
+     > If somehow it built failed, type ``make clean`` to clean and then redo the make procedure. 
+
      > After built successfully, the image file is located in ``project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp/asdk/image``, as below shows.
-     ![image7](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_8.png)
+
+	<p align = "center">    
+		<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_8.png" width="500" />
+	</p>
 
 > Note:
 > If you encountered any error message like: 
@@ -155,12 +177,9 @@ chmod -R 777 {path}/project/realtek_amebaD_va0_example/GCC-RELEASE/
 
 # 5 Downloading Images to Ameba-D
 
-Realtek provides an image tool to download images on windows.
+Realtek provides an [ImageTool](tools/AmebaD/Image_Tool/ImageTool.exe) to download images on windows.
 
-  * Environment Requirements: EX. WinXP, Win 7 Above, Microsoft .NET Framework 3.5
-  * ``ImageTool.exe``  Location: ``SDK\tools\AmebaD\Image_Tool\ImageTool.exe``
-
-   ![image8](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_9.png)]
+* Environment Requirements: EX. WinXP, Win 7 Above, Microsoft .NET Framework 3.5
 
 Assuming that the ImageTool on PC is a server, it sends images files to Ameba (client) through UART. To download image from server to client, the client must enter uart download first. 
 
@@ -187,7 +206,9 @@ Assuming that the ImageTool on PC is a server, it sends images files to Ameba (c
 
 5) **Click Download button to start. The progress bar will show the transmit progress of each image. You can also get the message of operation successfully or errors from the log window.**
 
-   ![image9](https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_10.png)
+   <p align = "center">    
+		<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_10.png" width="400" />
+   </p>
 
 # 6 Release Notes
 
