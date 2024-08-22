@@ -1326,7 +1326,7 @@ void fATBt(void *arg)
 	if (param == 1) {
 		AT_PRINTK("[ATBt]:_AT_BT_TAG_SCANNER_[ON]\n\r");
 		bt_tag_scanner_app_init();
-	
+
 	} else if (param == 0) {
 		AT_PRINTK("[ATBt]:_AT_BT_TAG_SCANNER_[OFF]\n\r");
 		bt_tag_scanner_app_deinit();
@@ -1440,6 +1440,88 @@ exit:
 	AT_PRINTK("[ATBd] Stop	BT DISTANCE DETECTOR: ATBd=0");
 	AT_PRINTK("[ATBd] Clear	all records: ATBd=2");
 
+}
+#endif
+
+#if (defined(CONFIG_BT_OTA_CLIENT) && CONFIG_BT_OTA_CLIENT) || \
+	(defined(CONFIG_BT_OTA_SERVER) && CONFIG_BT_OTA_SERVER)
+#include <bt_ota_client_app.h>
+char ota_buf[256] = {0};
+void fATBo(void *arg)
+{
+	int argc = 0;
+	int param0 = 0;
+	int param1 = 0;
+	char *argv[MAX_ARGC] = {0};
+
+	memset(ota_buf, 0, 256);
+
+	if (arg) {
+		strncpy(ota_buf, arg, sizeof(ota_buf));
+		argc = parse_param(ota_buf, argv);
+	} else {
+		goto exit;
+	}
+
+	if (argc < 3) {
+		AT_PRINTK("[AT_PRINTK] ERROR: input parameter error!\r\n");
+		goto exit;
+	}
+
+	param0 = atoi(argv[1]);
+	param1 = atoi(argv[2]);
+
+	if (param0 == 0) { //ota client example
+#if (defined(CONFIG_BT_OTA_CLIENT) && CONFIG_BT_OTA_CLIENT)
+		extern int bt_ota_client_app_init(void);
+		extern void bt_ota_client_app_deinit(void);
+		extern void bt_ota_client_app_send_msg(uint16_t subtype, void *buf);
+
+		if (param1 == 1) {
+			AT_PRINTK("[ATBo]:_AT_BT_OTA_CLIENT_[ON]\r\n");
+			bt_ota_client_app_init();
+		} else if (param1 == 0) {
+			AT_PRINTK("[ATBo]:_AT_BT_OTA_CLIENT_[OFF]\r\n");
+			bt_ota_client_app_deinit();
+		} else if (param1 == 2) { //scan start: ATBo=0,2
+			bt_ota_client_app_send_msg(OTA_SCAN_START, NULL);
+		} else if (param1 == 3) { //scan stop: ATBo=0,3
+			bt_ota_client_app_send_msg(OTA_SCAN_STOP, NULL);
+		} else if (param1 == 4) { //connect: ATBo=0,4,address
+			if (argc != 4) {
+				goto exit;
+			}
+			bt_ota_client_app_send_msg(OTA_CONNECT, ota_buf);
+		} else {
+			goto exit;
+		}
+#endif
+	} else if (param0 == 1) { //ota server exmaple
+#if (defined(CONFIG_BT_OTA_SERVER) && CONFIG_BT_OTA_SERVER)
+		extern int bt_ota_server_app_init(void);
+		extern void bt_ota_server_app_deinit(void);
+
+		if (param1 == 1) { //init: ATBo=1,1
+			AT_PRINTK("[ATBo]:_AT_BT_OTA_SERVER_[ON]\r\n");
+			bt_ota_server_app_init();
+		} else if (param1 == 0) { //deinit: ATBo=1,0
+			AT_PRINTK("[ATBo]:_AT_BT_OTA_SERVER_[OFF]\r\n");
+			bt_ota_server_app_deinit();
+		} else {
+			goto exit;
+		}
+#endif
+	} else {
+		goto exit;
+	}
+
+	return;
+
+exit:
+	AT_PRINTK("[ATBo] OTA client example init/deinit: ATBo=0,1/0");
+	AT_PRINTK("[ATBo] OTA server example init/deinit: ATBo=1,1/0");
+	AT_PRINTK("[ATBo] OTA client scan start/stop: ATBo=0,2/3");
+	AT_PRINTK("[ATBo] OTA client connect: ATBo=0,4,address");
 }
 #endif
 
@@ -1733,6 +1815,10 @@ log_item_t at_bt_items[ ] = {
 #endif
 #if defined(CONFIG_BT_DISTANCE_DETECTOR) && CONFIG_BT_DISTANCE_DETECTOR
 	{"ATBd", fATBd, {NULL, NULL}}, // Start/stop BT distance detector
+#endif
+#if (defined(CONFIG_BT_OTA_CLIENT) && CONFIG_BT_OTA_CLIENT) || \
+	(defined(CONFIG_BT_OTA_SERVER) && CONFIG_BT_OTA_SERVER)
+	{"ATBo", fATBo, {NULL, NULL}}, //start/stop ble ota client&server example
 #endif
 #if ((defined(CONFIG_BT_MESH_PROVISIONER) && CONFIG_BT_MESH_PROVISIONER) || \
 	(defined(CONFIG_BT_MESH_DEVICE) && CONFIG_BT_MESH_DEVICE) || \

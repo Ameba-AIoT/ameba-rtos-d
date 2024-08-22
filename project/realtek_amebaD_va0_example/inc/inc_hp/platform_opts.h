@@ -76,7 +76,7 @@
 #define CONFIG_LWIP_LAYER	1
 #define CONFIG_INIT_NET		1 //init lwip layer when start up
 #define CONFIG_WIFI_IND_USE_THREAD	0	// wifi indicate worker thread
-#define CONFIG_AP_SECURITY  0 //on or off to set AP security to WEP or WPA2 TKIP, default is open or WPA2 AES
+#define CONFIG_AP_SECURITY  0 //on or off to set AP security to WEP, default is open or WPA2 AES
 
 //on/off relative commands in log service
 #define CONFIG_SSL_CLIENT	0
@@ -483,7 +483,7 @@
 #define CONFIG_ENABLE_TTLS	0
 #define CONFIG_ENABLE_FAST	0
 
-// optional feature: whether to verify the cert of radius server
+// optional feature: whether to verify the cert of radius server, eap process when end when server cert verify failed
 #define ENABLE_EAP_SSL_VERIFY_SERVER	0
 
 #if CONFIG_ENABLE_PEAP || CONFIG_ENABLE_TLS || CONFIG_ENABLE_TTLS || CONFIG_ENABLE_FAST
@@ -513,6 +513,9 @@
 #endif
 #endif
 
+/* For KV example*/
+#define CONFIG_EXAMPLE_KV			0
+
 /* For LITTLEFS example*/
 #define CONFIG_EXAMPLE_LITTLEFS			0
 
@@ -529,7 +532,7 @@
 #undef CONFIG_WLAN
 #define CONFIG_WLAN		0
 #undef	CONFIG_INCLUDE_SIMPLE_CONFIG
-#define CONFIG_INCLUDE_SIMPLE_CONFIG	0
+#define CONFIG_INCLUDE_SIMPLE_CONFIG    0
 #undef	CONFIG_EXAMPLE_WLAN_FAST_CONNECT
 #define CONFIG_EXAMPLE_WLAN_FAST_CONNECT	0
 #undef CONFIG_LWIP_LAYER

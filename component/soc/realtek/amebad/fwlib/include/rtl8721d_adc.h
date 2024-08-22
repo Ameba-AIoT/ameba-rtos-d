@@ -162,8 +162,8 @@ typedef struct {
 	s32 cal_b;
 	s32 cal_c;
 
-	bool order2_cal; // 2-order calibration or 1-order calibration
-	bool init_done; // calibration parameter init done
+	u8 order2_cal; // 2-order calibration or 1-order calibration
+	u8 init_done; // calibration parameter init done
 } ADC_CalParaTypeDef;
 /**
   * @}
@@ -334,7 +334,7 @@ _LONG_CALL_ void ADC_AutoCSwCmd(u32 NewState);
 _LONG_CALL_ void ADC_TimerTrigCmd(u8 Tim_Idx, u32 PeriodMs, u32 NewState);
 _LONG_CALL_ void ADC_SetDmaEnable(u32 newState);
 _LONG_CALL_ u32 ADC_RXGDMA_Init(GDMA_InitTypeDef *GDMA_InitStruct, void *CallbackData, IRQ_FUN CallbackFunc, u8* pDataBuf, u32 DataLen);
-_LONG_CALL_ void ADC_InitCalPara(ADC_CalParaTypeDef *CalPara, bool IsVBatChan);
+_LONG_CALL_ void ADC_InitCalPara(ADC_CalParaTypeDef *CalPara, u8 IsVBatChan);
 _LONG_CALL_ s32 ADC_GetVoltage(u32 chan_data);
 _LONG_CALL_ s32 ADC_GetVBATVoltage(u32 vbat_data);
 _LONG_CALL_ u32 ADC_GetInterR(void);

@@ -29,6 +29,9 @@ extern void at_ipcam_sdio_wifi_init(void);
 #endif
 extern void at_fs_init(void);
 extern void at_sys_init(void);
+#if ((defined CONFIG_MQTT_EN) && (1 == CONFIG_MQTT_EN))
+extern void at_mqtt_init(void);
+#endif
 extern void at_google_init(void);
 extern void at_transport_init(void);
 //extern void at_app_init(void);
@@ -84,6 +87,9 @@ log_init_t log_init_table[] = {
 #endif	
 	at_log_init,
 	//	at_app_init,
+#if ((defined CONFIG_MQTT_EN) && (1 == CONFIG_MQTT_EN))
+        at_mqtt_init,
+#endif
 
 #if (defined(CONFIG_GOOGLE_NEST) && CONFIG_GOOGLE_NEST)
 	at_google_init,
@@ -223,7 +229,13 @@ void* log_handler(char *cmd)
 	char *copy=buf;
 	char *token = NULL;
 	char *param = NULL;
-	char tok[5] = {0};//'\0'
+#if ATCMD_VER == ATVER_2
+	char tok[CONFIG_AT_CMD_HEADER_LEN + 1] = {0};
+	char *tokSearch = &tok[2];
+#else
+	char tok[5] = {0};
+#endif
+
 #if CONFIG_LOG_HISTORY
 	strcpy(log_history[((log_history_count++)%LOG_HISTORY_LEN)], log_buf);
 #endif
@@ -236,6 +248,24 @@ void* log_handler(char *cmd)
 	token = strtok(copy, "=");
 	param = strtok(NULL, "\0");
 #endif
+
+#if ATCMD_VER == ATVER_2
+	if(token && (strlen(token) <= CONFIG_AT_CMD_HEADER_LEN))
+		strncpy(tok, token, sizeof(tok));
+	else{
+		//printf("\n\rAT Cmd format error!\n");
+		return NULL;
+	};
+	/* While use format of "AT+command", the prefix 2 letters should be check here. */
+	if('A' != tok[0] || 'T' != tok[1])
+	{
+	    return NULL;
+	}
+	//printf(" Command %s \n\r ", tokSearch);
+	//printf(" Param %s \n\r", param);
+	action = (log_act_t)log_action(tokSearch);
+
+#else
 	if(token && (strlen(token) <= 4))
 		strncpy(tok, token, sizeof(tok));
 	else{
@@ -245,13 +275,16 @@ void* log_handler(char *cmd)
 	//printf(" Command %s \n\r ", tok);
 	//printf(" Param %s \n\r", param);
 	action = (log_act_t)log_action(tok);
-        
+#endif
+
 	if(action){	
 		action(param);
 	} 
 	return (void*)action;
 
 }
+
+char temp_log_buf[LOG_SERVICE_BUFLEN];
 
 int parse_param(char *buf, char **argv)
 {
@@ -261,13 +294,12 @@ int parse_param(char *buf, char **argv)
 	memset(str_buf, 0, LOG_SERVICE_BUFLEN);
 	int str_count = 0;
 	int buf_cnt = 0;
-    static char temp_buf[LOG_SERVICE_BUFLEN];
-    char *buf_pos = temp_buf;
-    memset(temp_buf, 0, sizeof(temp_buf));
+    char *buf_pos = temp_log_buf;
+    memset(temp_log_buf, 0, sizeof(temp_log_buf));
 
 	if(buf == NULL)
 		goto exit;
-	strncpy(temp_buf, buf, sizeof(temp_buf));
+	strncpy(temp_log_buf, buf, sizeof(temp_log_buf));
 	
 	while((argc < MAX_ARGC) && (*buf_pos != '\0')) {
 		while((*buf_pos == ',') || (*buf_pos == '[') || (*buf_pos == ']')){
@@ -313,6 +345,61 @@ int parse_param(char *buf, char **argv)
 			buf_pos++;
 	}
 exit:
+	return argc;
+}
+
+int parse_param_advance(char *arg, char **argv, unsigned char lastIndex)
+{
+	int argc = 1, i = 0, j = 0;
+	char *arg_pos = temp_log_buf;
+
+	if (NULL == arg) {
+		goto exit;
+	}
+
+	while ('\0' != arg[i] && LOG_SERVICE_BUFLEN - 1 > j) {
+		if (',' == arg[i]) {
+			temp_log_buf[j] = '\0';
+			i++;
+			j++;
+			argv[argc] = arg_pos;
+			argc++;
+			arg_pos = &temp_log_buf[j];
+			if (argc == lastIndex) {
+				argv[argc] = arg_pos;
+				argc++;
+				while ('\0' != arg[i] && LOG_SERVICE_BUFLEN - 1 > j) {
+					temp_log_buf[j] = arg[i];
+					i++;
+					j++;
+				}
+				temp_log_buf[j] = '\0';
+				goto exit;
+			}
+		} else if ('\"' == arg[i]) {
+			i++;
+			while ('\0' != arg[i] && LOG_SERVICE_BUFLEN - 1 > j) {
+				if ('\"' == arg[i] && ('\0' == arg[i + 1] || ',' == arg[i + 1])) {
+					i++;
+					break;
+				}
+				temp_log_buf[j] = arg[i];
+				i++;
+				j++;
+			}
+		} else {
+			temp_log_buf[j] = arg[i];
+			i++;
+			j++;
+		}
+	}
+
+	temp_log_buf[j] = '\0';
+	argv[argc] = arg_pos;
+	argc++;
+
+exit:
+
 	return argc;
 }
 
@@ -440,7 +527,7 @@ void log_service(void *param)
 				legency_interactive_handler(NULL, NULL);
 			#else
 				if(print_help_handler((char *)log_buf) < 0){
-					at_printf("\r\nunknown command '%s'", log_buf);
+					at_printf("unknown command %s\r\n", log_buf);
 				}
 			#endif
 			}
@@ -454,8 +541,10 @@ void log_service(void *param)
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
 		if(atcmd_lwip_is_tt_mode())
 			at_printf(STR_END_OF_ATDATA_RET);
+#if ATCMD_NEWLINE_HASHTAG_ENABLE
 		else
 			at_printf(STR_END_OF_ATCMD_RET);
+#endif
 #endif
 #if CONFIG_LOG_SERVICE_LOCK
 		log_service_unlock();

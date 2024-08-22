@@ -5,6 +5,7 @@ IFLAGS               += -I$(BASEDIR)/component/common/application/mqtt/MQTTClien
 IFLAGS               += -I$(BASEDIR)/component/common/bluetooth/realtek/sdk
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/sdio/realtek/sdio_host/inc
 IFLAGS               += -I$(BASEDIR)/component/common/network/libcoap/include
+IFLAGS				+= -I$(BASEDIR)/component/common/file_system/kv
 
 ifeq ($(CONFIG_LINKKIT_AWSS), y)
 #aliyun
@@ -142,6 +143,7 @@ CSRC += $(DIR)/socket_tcp_trx/example_socket_tcp_trx_2.c
 CSRC += $(DIR)/fatfs/example_fatfs.c
 CSRC += $(DIR)/dct/example_dct.c
 CSRC += $(DIR)/littlefs/example_littlefs.c
+CSRC += $(DIR)/kv/example_kv.c
 ifeq ($(CONFIG_SPI_NAND_EN),y)
 CSRC += $(DIR)/littlefs_spi_nand/example_spi_nand_littlefs.c
 endif

@@ -84,6 +84,10 @@
 #include <http2_client/example_http2_client.h>
 #endif
 
+#if defined(CONFIG_EXAMPLE_HTTP2_SSL_CLIENT) && CONFIG_EXAMPLE_HTTP2_SSL_CLIENT
+#include <http2_ssl_client/example_http2_ssl_client.h>
+#endif
+
 #if CONFIG_EXAMPLE_TCP_KEEPALIVE
 #include <tcp_keepalive/example_tcp_keepalive.h>
 #endif
@@ -96,8 +100,16 @@
 #include <pppoe/example_pppoe.h>
 #endif
 
-#if defined(CONFIG_EXAMPLE_AZURE_IOT_HUB) && CONFIG_EXAMPLE_AZURE_IOT_HUB
-#include <azure_iot_hub/example_azure_iot_hub.h>
+#if defined(CONFIG_EXAMPLE_AZURE_IOTHUB_TELEMETRY) && CONFIG_EXAMPLE_AZURE_IOTHUB_TELEMETRY 
+#include <azure_iothub_telemetry/example_azure_iothub_telemetry.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AZURE_IOTHUB_X509) && CONFIG_EXAMPLE_AZURE_IOTHUB_X509 
+#include <azure_iothub_x509/example_azure_iothub_x509.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AZURE) && CONFIG_EXAMPLE_AZURE 
+#include <azure/example_azure_iot_entry.h>
 #endif
 
 #if defined(CONFIG_EXAMPLE_GOOGLE_NEST) && CONFIG_EXAMPLE_GOOGLE_NEST
@@ -140,6 +152,10 @@
 #include <std_file/example_std_file.h>
 #endif
 
+#if defined(CONFIG_EXAMPLE_KV) && CONFIG_EXAMPLE_KV
+#include <kv/example_kv.h>
+#endif
+
 #if defined(CONFIG_EXAMPLE_DCT) && CONFIG_EXAMPLE_DCT
 #include <dct/example_dct.h>
 #endif
@@ -172,6 +188,14 @@
 #include <coap/example_coap.h>
 #endif
 
+#if defined(CONFIG_EXAMPLE_COAP_DTLS_CLIENT) && CONFIG_EXAMPLE_COAP_DTLS_CLIENT
+#include <coap_dtls_client/example_coap_dtls_client.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_COAP_DTLS_SERVER) && CONFIG_EXAMPLE_COAP_DTLS_SERVER
+#include <coap_dtls_server/example_coap_dtls_server.h>
+#endif
+
 #if defined(CONFIG_EXAMPLE_COAP_CLIENT) && CONFIG_EXAMPLE_COAP_CLIENT
 #include <coap_client/example_coap_client.h>
 #endif
@@ -198,6 +222,42 @@
 
 #if defined(CONFIG_EXAMPLE_BCAST) && CONFIG_EXAMPLE_BCAST
 #include <bcast/example_bcast.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO) && CONFIG_EXAMPLE_AUDIO
+#include <audio/example_audio.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_MP3) && CONFIG_EXAMPLE_AUDIO_MP3
+#include <audio_mp3/example_audio_mp3.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_M4A) && CONFIG_EXAMPLE_AUDIO_M4A
+#include <audio_m4a/example_audio_m4a.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_M4A_SELFPARSE) && CONFIG_EXAMPLE_AUDIO_M4A_SELFPARSE
+#include <audio_m4a_selfparse/example_audio_m4a_selfparse.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_M4A_MP3) && CONFIG_EXAMPLE_AUDIO_M4A_MP3
+#include <audio_m4a_mp3/example_audio_m4a_mp3.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_AMR) && CONFIG_EXAMPLE_AUDIO_AMR
+#include <audio_amr/example_audio_amr.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_HLS) && CONFIG_EXAMPLE_AUDIO_HLS
+#include <audio_hls/example_audio_hls.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_HELIX_AAC) && CONFIG_EXAMPLE_AUDIO_HELIX_AAC
+#include <audio_helix_aac/example_audio_helix_aac.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_HELIX_MP3) && CONFIG_EXAMPLE_AUDIO_HELIX_MP3
+#include <audio_helix_mp3/example_audio_helix_mp3.h>
 #endif
 
 #if defined(CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE) && CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE
@@ -559,6 +619,11 @@ void example_entry(void)
     example_http2_client();
 #endif
 
+#if defined(CONFIG_EXAMPLE_HTTP2_SSL_CLIENT) && CONFIG_EXAMPLE_HTTP2_SSL_CLIENT
+		example_http2_ssl_client();
+#endif
+
+
 #if CONFIG_EXAMPLE_TCP_KEEPALIVE
 	example_tcp_keepalive();
 #endif
@@ -679,6 +744,14 @@ void example_entry(void)
     example_coap();
 #endif
 
+#if defined(CONFIG_EXAMPLE_COAP_DTLS_CLIENT) && CONFIG_EXAMPLE_COAP_DTLS_CLIENT
+	example_coap_dtls_client();
+#endif
+
+#if defined(CONFIG_EXAMPLE_COAP_DTLS_SERVER) && CONFIG_EXAMPLE_COAP_DTLS_SERVER
+	example_coap_dtls_server();
+#endif
+
 #if defined(CONFIG_EXAMPLE_COAP_CLIENT) && CONFIG_EXAMPLE_COAP_CLIENT
     example_coap_client();
 #endif
@@ -709,16 +782,88 @@ void example_entry(void)
 	example_bcast();
 #endif
 
+#if defined(CONFIG_EXAMPLE_AUDIO) && CONFIG_EXAMPLE_AUDIO
+	example_audio();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_MP3) && CONFIG_EXAMPLE_AUDIO_MP3
+/*To ensure the application has enough heap size, please goto FreeRTOSConfig.h to change configTOTAL_HEAP_SIZE at least to 60*1024 */
+	example_audio_mp3();
+#endif     
+
+#if defined(CONFIG_EXAMPLE_AUDIO_AC3) && CONFIG_EXAMPLE_AUDIO_AC3
+	example_audio_ac3();
+#endif     
+
+#if defined(CONFIG_EXAMPLE_AUDIO_M4A) && CONFIG_EXAMPLE_AUDIO_M4A
+/*To ensure the application has enough heap size, please goto FreeRTOSConfig.h to change configTOTAL_HEAP_SIZE at least to 270*1024 and ENABLE WIFI*/
+	example_audio_m4a();
+#endif  
+        
+#if defined(CONFIG_EXAMPLE_AUDIO_M4A_SELFPARSE) && CONFIG_EXAMPLE_AUDIO_M4A_SELFPARSE
+/*To ensure the application has enough heap size, please goto FreeRTOSConfig.h to change configTOTAL_HEAP_SIZE at least to 270*1024 and ENABLE WIFI*/
+	example_audio_m4a_selfparse();
+#endif 
+
+#if defined(CONFIG_EXAMPLE_AUDIO_OPUS) && CONFIG_EXAMPLE_AUDIO_OPUS
+	example_audio_opus();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_M4A_MP3) && CONFIG_EXAMPLE_AUDIO_M4A_MP3
+	example_audio_m4a_mp3();
+#endif  
+
+#if defined(CONFIG_EXAMPLE_AUDIO_AMR) && CONFIG_EXAMPLE_AUDIO_AMR
+	example_audio_amr();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_AMR_FLASH) && CONFIG_EXAMPLE_AUDIO_AMR_FLASH
+	example_audio_amr_flash();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_HLS) && CONFIG_EXAMPLE_AUDIO_HLS
+	example_audio_hls();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_PLAYBACK) && CONFIG_EXAMPLE_AUDIO_PLAYBACK
+	example_audio_playback();
+#endif
+
 #if defined(CONFIG_EXAMPLE_AUDIO_RECORDER) && CONFIG_EXAMPLE_AUDIO_RECORDER
 	example_audio_recorder();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_HELIX_AAC) && CONFIG_EXAMPLE_AUDIO_HELIX_AAC
+    example_audio_helix_aac();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_HELIX_MP3) && CONFIG_EXAMPLE_AUDIO_HELIX_MP3
+    example_audio_helix_mp3();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_FLAC) && CONFIG_EXAMPLE_AUDIO_FLAC
+	example_audio_flac();
 #endif
 
 #if defined(CONFIG_EXAMPLE_AUDIO_TTS) && CONFIG_EXAMPLE_AUDIO_TTS 
 	example_audio_tts();
 #endif
 
+#if defined(CONFIG_EXAMPLE_EKHO) && CONFIG_EXAMPLE_EKHO 
+	example_audio_ekho();
+#endif
+
 #if defined(CONFIG_EXAMPLE_TTS_CYBERON) && CONFIG_EXAMPLE_TTS_CYBERON
 	example_audio_tts_with_cyberon();
+#endif
+
+
+#if defined(CONFIG_EXAMPLE_AUDIO_OPUS_DECODE) && CONFIG_EXAMPLE_AUDIO_OPUS_DECODE
+	example_audio_opus_decode();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AUDIO_OPUS_ENCODE) && CONFIG_EXAMPLE_AUDIO_OPUS_ENCODE
+	example_audio_opus_encode();
 #endif
 
 #if defined(CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE) && CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE
@@ -765,10 +910,18 @@ void example_entry(void)
     example_amazon_awsiot();
 #endif
 
-#if defined(CONFIG_EXAMPLE_AZURE_IOT_HUB) && CONFIG_EXAMPLE_AZURE_IOT_HUB
-    example_iot_hub();
+#if defined(CONFIG_EXAMPLE_AZURE_IOTHUB_TELEMETRY) && CONFIG_EXAMPLE_AZURE_IOTHUB_TELEMETRY 
+    example_azure_iothub_telemetry();
+#endif
+
+#if defined(CONFIG_EXAMPLE_AZURE_IOTHUB_X509) && CONFIG_EXAMPLE_AZURE_IOTHUB_X509 
+    example_azure_iothub_x509();
 #endif
     
+#if defined(CONFIG_EXAMPLE_AZURE) && CONFIG_EXAMPLE_AZURE 
+    example_azure();
+#endif    
+
 #if CONFIG_ALINK
 	example_alink();
 #endif
@@ -970,6 +1123,14 @@ example_hilink();
 
 #if defined(CONFIG_EXAMPLE_SW_PTA) && CONFIG_EXAMPLE_SW_PTA
 	example_sw_pta();
+#endif
+
+#if defined(CONFIG_RIC) && (CONFIG_RIC == 1)
+	example_ric();
+#endif
+
+#if defined(CONFIG_EXAMPLE_KV) && CONFIG_EXAMPLE_KV
+	example_kv();
 #endif
 
 #if defined(CONFIG_EXAMPLE_LITTLEFS) && CONFIG_EXAMPLE_LITTLEFS

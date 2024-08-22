@@ -184,7 +184,11 @@ extern unsigned int sys_now(void);
 
 /*LWIP_UART_ADAPTER==1: Enable LWIP_UART_ADAPTER when CONFIG_GAGENT is enabled, 
    because some GAGENT functions denpond on the following macro definitions.*/
+#if ((defined CONFIG_MQTT_EN) && (1 == CONFIG_MQTT_EN))
+#define LWIP_UART_ADAPTER                   1
+#else
 #define LWIP_UART_ADAPTER                   0
+#endif
 
 #if LWIP_UART_ADAPTER || CONFIG_ETHERNET
 #undef  LWIP_SO_SNDTIMEO        

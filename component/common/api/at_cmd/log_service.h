@@ -36,6 +36,8 @@
 #define SUPPORT_LOG_SERVICE	1
 #endif
 
+#define CONFIG_AT_CMD_HEADER_LEN      20
+
 //LOG_SERVICE_BUFLEN: default, only 63 bytes could be used for keeping input
 //                                     cmd, the last byte is for string end ('\0').
 #ifndef LOG_SERVICE_BUFLEN
@@ -69,6 +71,7 @@
 #define AT_FLAG_COMMON      AT_BIT(8)
 #define AT_FLAG_WIFI        AT_BIT(9)
 #define AT_FLAG_RDP         AT_BIT(10)
+#define AT_FLAG_MQTT        AT_BIT(11)
 
 enum{
 	AT_DBG_OFF = 0,
@@ -114,6 +117,7 @@ typedef struct _at_command_item_{
 
 void log_service_add_table(log_item_t *tbl, int len);
 int parse_param(char *buf, char **argv);
+int parse_param_advance(char *arg, char **argv, unsigned char lastIndex);
 #if CONFIG_LOG_SERVICE_LOCK
 void log_service_lock_init(void);
 void log_service_lock(void);
@@ -121,8 +125,9 @@ u32 log_service_lock_timeout(u32 ms);
 void log_service_unlock(void);
 #endif
 
-#define C_NUM_AT_CMD			4 //"ATxx", 4 characters
-#define C_NUM_AT_CMD_DLT		1 //"=", 1 charater
-#define STR_END_OF_ATCMD_RET	"\r\n\n# " //each AT command response will end with this string
-#define STR_END_OF_ATDATA_RET	"\r\n\n> " //data transparent transmission indicator
+#define ATCMD_NEWLINE_HASHTAG_ENABLE   0
+#define C_NUM_AT_CMD                   4 //"ATxx", 4 characters
+#define C_NUM_AT_CMD_DLT               1 //"=", 1 charater
+#define STR_END_OF_ATCMD_RET           "\r\n\n# " //each AT command response will end with this string
+#define STR_END_OF_ATDATA_RET          "\r\n\n> " //data transparent transmission indicator
 #endif

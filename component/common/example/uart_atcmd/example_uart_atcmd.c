@@ -36,9 +36,9 @@ extern int atcmd_lwip_restore_from_flash(void);
 
 serial_t at_cmd_sobj;
 char at_string[ATSTRING_LEN];
-//_sema at_printf_sema;
+_sema at_printf_sema;
 _sema uart_at_dma_tx_sema;
-unsigned char gAT_Echo = 1; // default echo on
+unsigned char gAT_Echo = 0;//1; // default echo on
 
 #define UART_AT_MAX_DELAY_TIME_MS   20
 
@@ -350,7 +350,7 @@ void uart_at_send_buf(u8 *buf, u32 len)
 	}
 #endif
 }
-/*
+
 void uart_at_lock(void)
 {
 	rtw_down_sema(&at_printf_sema);
@@ -364,7 +364,7 @@ void uart_at_unlock(void)
 void uart_at_lock_init(){
 	rtw_init_sema(&at_printf_sema, 1);
 }
-*/
+
 void uart_irq(uint32_t id, SerialIrq event)
 {
 	serial_t    *sobj = (serial_t *)id;
@@ -537,7 +537,7 @@ void uart_atcmd_main(void)
 	else
 		serial_set_flow_control(&at_cmd_sobj, FlowControlNone, rxflow, txflow);
 
-	/*uart_at_lock_init();*/
+	uart_at_lock_init();
 
 #if UART_AT_USE_DMA_TX
 	rtw_init_sema(&uart_at_dma_tx_sema, 1);
@@ -560,16 +560,19 @@ void uart_atcmd_main(void)
 static void uart_atcmd_thread(void *param)
 {
 	p_wlan_init_done_callback = NULL;
-	atcmd_wifi_restore_from_flash();
-	atcmd_lwip_restore_from_flash();
+	
 	rtw_msleep_os(20);
 	uart_atcmd_main();
-	at_printf("\r\nAT COMMAND READY");
+	at_printf("AT COMMAND READY\r\n");
 	if(atcmd_lwip_is_tt_mode())
 		at_printf(STR_END_OF_ATDATA_RET);
 	else
 		at_printf(STR_END_OF_ATCMD_RET);
 	_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ALWAYS, STR_END_OF_ATCMD_RET); 
+
+	atcmd_wifi_restore_from_flash();
+	atcmd_lwip_restore_from_flash();
+	
 	vTaskDelete(NULL);
 }
 

@@ -66,6 +66,8 @@
 #define AP_GW_ADDR3   1  
 #endif
 
+#define ENABLE_SET_AP_MODE        1
+
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && (CONFIG_EXAMPLE_UART_ATCMD))
 #include "wifi_structures.h"
 #include <wlan_fast_connect/example_wlan_fast_connect.h>
@@ -149,15 +151,15 @@ extern void uart_at_send_string(char *str);
 extern void uart_at_send_buf(u8 *buf, u32 len);
 
 #define at_printf(fmt, args...)  do{\
-			/*uart_at_lock();*/\
+			uart_at_lock();\
 			snprintf(at_string, ATSTRING_LEN, fmt, ##args); \
 			uart_at_send_string(at_string);\
-			/*uart_at_unlock();*/\
+			uart_at_unlock();\
 	}while(0)
 #define at_print_data(data, size)  do{\
-			/*uart_at_lock();*/\
+			uart_at_lock();\
 			uart_at_send_buf(data, size);\
-			/*uart_at_unlock();*/\
+			uart_at_unlock();\
 	}while(0)
 
 #elif (defined(CONFIG_EXAMPLE_SPI_ATCMD) && (CONFIG_EXAMPLE_SPI_ATCMD))
@@ -249,5 +251,11 @@ extern void spi_at_send_buf(u8 *buf, u32 len);
 #define at_printf(fmt, args...) do{printf(fmt, ##args);}while(0)
 #define at_print_data(data, size) do{__rtl_memDump(data, size, NULL);}while(0)
 #endif//#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
+
+#if 1
+#define ATCMD_NEWLINE_HASHTAG()  {at_printf("#\r\n");}
+#else
+#define ATCMD_NEWLINE_HASHTAG()
+#endif
 
 #endif

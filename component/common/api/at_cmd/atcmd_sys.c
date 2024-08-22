@@ -101,6 +101,24 @@ void fATSE(void *arg)
 #endif
 }
 
+void fATCR(void *arg)
+{
+	/* To avoid gcc warnings */
+	( void ) arg;
+
+	AT_DBG_MSG(AT_FLAG_OTA, AT_DBG_ALWAYS, "[ATSC]: _AT_SYSTEM_CLEAR_OTA_SIGNATURE_UNDER_RSIP_");
+	sys_clear_ota_signature_rsip();
+}
+
+void fATRR(void *arg)
+{
+	/* To avoid gcc warnings */
+	( void ) arg;
+	
+	AT_DBG_MSG(AT_FLAG_OTA, AT_DBG_ALWAYS, "[ATSR]: _AT_SYSTEM_RECOVER_OTA_SIGNATURE_UNDER_RSIP_");
+	sys_recover_ota_signature_rsip();
+}
+
 void fATSC(void *arg)
 {
 	/* To avoid gcc warnings */
@@ -1263,35 +1281,56 @@ extern void sys_reset(void);
 void print_system_at(void *arg);
 extern void print_wifi_at(void *arg);
 extern void print_tcpip_at(void *arg);
+#if ((defined CONFIG_MQTT_EN) && (1 == CONFIG_MQTT_EN))
+extern void print_mqtt_at(void *arg);
+#endif
 
 // uart version 2 echo info
 extern unsigned char gAT_Echo;
 
 
-void fATS0(void *arg){
+void fATS0(void *arg)
+{
+#if ATCMD_VER == ATVER_2
+	at_printf("%sOK\r\n", "+TEST:");
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[AT] OK");
+#endif
 }
 
-void fATSh(void *arg){
-	// print common AT command
-	at_printf("\r\n[ATS?] ");
-	at_printf("\r\nCommon AT Command:");
-	print_system_at(arg);
+void fATSh(void *arg)
+{
+    // print common AT command
+    at_printf("Common AT Command:\r\n");
+    print_system_at(arg);
+
 #if CONFIG_WLAN
-	at_printf("\r\nWi-Fi AT Command:");
-	print_wifi_at(arg);
+    /* Wifi command. */
+    at_printf("Wi-Fi AT Command:\r\n");
+    print_wifi_at(arg);
 #endif
 
 #if CONFIG_TRANSPORT
-	at_printf("\r\nTCP/IP AT Command:");
-	print_tcpip_at(arg);
+    /* TCP/IP. */
+    at_printf("TCP/IP AT Command:\r\n");
+    print_tcpip_at(arg);
 #endif
 
-	at_printf("\r\n[ATS?] OK");
+#if (defined CONFIG_MQTT_EN) && (1 == CONFIG_MQTT_EN)
+    /* MQTT command. */
+    at_printf("MQTT AT command:\r\n");
+    print_mqtt_at(arg);
+#endif
+
+    at_printf("%sOK\r\n", "+LIST:");
+	ATCMD_NEWLINE_HASHTAG();
 }
 
-void fATSR(void *arg){
-	at_printf("\r\n[ATSR] OK");
+void fATSR(void *arg)
+{
+	at_printf("%sOK\r\n", "+RST:");
+	ATCMD_NEWLINE_HASHTAG();
 	sys_reset();
 }
 
@@ -1304,6 +1343,16 @@ void fATSV(void *arg){
 
 	// get fw version
 	strncpy(fw_buf, SDK_VERSION, sizeof(fw_buf));
+#if ATCMD_VER == ATVER_2
+#if defined CONFIG_PLATFORM_8195A
+	at_printf("%s%s,%s,%s\r\n", "+GMR:",at_buf,fw_buf,RTL8195BFW_COMPILE_TIME);
+#elif defined CONFIG_PLATFORM_8710C
+	at_printf("%s%s,%s,%s\r\n", "+GMR:",at_buf,fw_buf,RTL8710CFW_COMPILE_TIME);
+#elif defined CONFIG_PLATFORM_8721D
+	at_printf("%s%s,%s,%s\r\n", "+GMR:",at_buf,fw_buf,RTL_FW_COMPILE_TIME);
+#endif
+	ATCMD_NEWLINE_HASHTAG();
+#else
 #if defined CONFIG_PLATFORM_8195A
 	at_printf("\r\n[ATSV] OK:%s,%s(%s)",at_buf,fw_buf,RTL8195BFW_COMPILE_TIME);
 #elif defined CONFIG_PLATFORM_8710C
@@ -1311,24 +1360,87 @@ void fATSV(void *arg){
 #elif defined CONFIG_PLATFORM_8721D
 	at_printf("\r\n[ATSV] OK:%s,%s(%s)",at_buf,fw_buf,RTL_FW_COMPILE_TIME);
 #endif
+#endif
 }
 
+#if ENABLE_MULTI_SLEEP_LEVEL
+void fATDeepSleep(void *arg)
+{
+    at_printf("%sTODO\r\n", "+DSLP:");
+    /* TODO. */
+}
+
+void fATAcqSleep(void *arg)
+{
+    int argc = 0;
+    char *argv[MAX_ARGC] = {0};
+
+    if(!arg)
+    {
+        AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ERROR, "\r\n[SLPPG] Usage: SLPPG");
+        at_printf("%sERROR: 0\r\n", "+SLPPG:");
+        return;
+    }
+    if((argc = parse_param(arg, argv)) != 1)
+    {
+        AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ERROR, "\r\n[SLPPG] Usage: SLPPG");
+        at_printf("%sERROR: 1\r\n", "+SLPPG:");
+        return;
+    }
+
+    pmu_acquire_wakelock(PMU_OS);
+    at_printf("%sOK\r\n", "+SLPPG:");
+	ATCMD_NEWLINE_HASHTAG();
+}
+
+void fATRelSleep(void *arg)
+{
+    int argc = 0;
+    char *argv[MAX_ARGC] = {0};
+
+    if(!arg)
+    {
+        AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ERROR, "\r\n[SLPCG] Usage: SLPCG");
+        at_printf("%sERROR: 0\r\n", "+SLPCG:");
+        return;
+    }
+    if((argc = parse_param(arg, argv)) != 1)
+    {
+        AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ERROR, "\r\n[SLPCG] Usage: SLPCG");
+        at_printf("%sERROR: 1\r\n", "+SLPCG:");
+        return;
+    }
+
+    pmu_release_wakelock(PMU_OS);
+    at_printf("%sOK\r\n", "+SLPCG:");
+	ATCMD_NEWLINE_HASHTAG();
+}
+
+#else /* ENABLE_MULTI_SLEEP_LEVEL */
 #if defined(configUSE_WAKELOCK_PMU) && (configUSE_WAKELOCK_PMU == 1)
 void fATSP(void *arg){
 	int argc = 0;
 	char *argv[MAX_ARGC] = {0};
 
-	uint32_t lock_id;
+	// uint32_t lock_id;
 	uint32_t bitmap;
 	
 	if (!arg) {
 		AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ERROR, "\r\n[ATSP] Usage: ATSP=<a/r/?>");
+#if ATCMD_VER == ATVER_2
+		at_printf("%sERROR:1\r\n", "+SLEEP:");
+#else
 		at_printf("\r\n[ATSP] ERROR:1");
+#endif
 		return;
 	} else {
 		if((argc = parse_param(arg, argv)) != 2){
 			AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ERROR, "\r\n[ATSP] Usage: ATSP=<a/r/?>");
+#if ATCMD_VER == ATVER_2
+			at_printf("%sERROR:1\r\n", "+SLEEP:");
+#else
 			at_printf("\r\n[ATSP] ERROR:1");
+#endif
 			return;
 		}
 	}
@@ -1337,14 +1449,14 @@ void fATSP(void *arg){
 		case 'a': // acquire
 		{
 			pmu_acquire_wakelock(PMU_OS);
-			//at_printf("\r\n[ATSP] wakelock:0x%08x", pmu_get_wakelock_status());			
+			//at_printf("\r\n%swakelock:0x%08x", "+SLEEP:", pmu_get_wakelock_status());			
 			break;
 		}
 
 		case 'r': // release
 		{
 			pmu_release_wakelock(PMU_OS);
-			//at_printf("\r\n[ATSP] wakelock:0x%08x", pmu_get_wakelock_status());
+			//at_printf("\r\%swakelock:0x%08x", "+DSLP:", pmu_get_wakelock_status());
 			break;
 		}
 
@@ -1352,13 +1464,23 @@ void fATSP(void *arg){
 			break;
 		default:
 			AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ERROR, "\r\n[ATSP] Usage: ATSP=<a/r/?>");
+#if ATCMD_VER == ATVER_2
+			at_printf("%sERROR:2\r\n", "+SLEEP:");
+#else
 			at_printf("\r\n[ATSP] ERROR:2");
+#endif
 			return;
 	}
 	bitmap = pmu_get_wakelock_status();
+#if ATCMD_VER == ATVER_2
+	at_printf("%sOK:%s\r\n", "+SLEEP:", (bitmap&BIT(PMU_OS))?"1":"0");
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[ATSP] OK:%s", (bitmap&BIT(PMU_OS))?"1":"0");
+#endif
 }
 #endif
+#endif /* ENABLE_MULTI_SLEEP_LEVEL */
 
 void fATSE(void *arg){
 	int argc = 0;
@@ -1402,10 +1524,18 @@ void fATSE(void *arg){
 	}
 	
 exit:
+#if ATCMD_VER == ATVER_2
+	if(err_no)
+		at_printf("%sERROR:%d\r\n", "+ECHOLEVEL:", err_no);
+	else
+		at_printf("%sOK\r\n", "+ECHOLEVEL:");
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	if(err_no)
 		at_printf("\r\n[ATSE] ERROR:%d", err_no);
 	else
 		at_printf("\r\n[ATSE] OK");
+#endif
 	return;
 }
 #if CONFIG_WLAN
@@ -1423,8 +1553,13 @@ void fATSY(void *arg){
 	// Reset ota image  signature
 	cmd_ota_image(0);
 #endif	
-	
+
+#if ATCMD_VER == ATVER_2
+	at_printf("%sOK\r\n", "+RESTORE:");
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[ATSY] OK");
+#endif
 	// reboot
 	sys_reset();
 }
@@ -1437,23 +1572,40 @@ void fATSO(void *arg){
 	
 	if(!arg){
 		AT_DBG_MSG(AT_FLAG_OTA, AT_DBG_ERROR, "\r\n[ATSO] Usage: ATSO=<ip>,<port>");
+#if ATCMD_VER == ATVER_2
+		at_printf("%sERROR:1\r\n", "+OTA:");
+#else
 		at_printf("\r\n[ATSO] ERROR:1");
+#endif
 		return;
 	}
 	argv[0] = "update";
 	if((argc = parse_param(arg, argv)) != 3){
 		AT_DBG_MSG(AT_FLAG_OTA, AT_DBG_ERROR, "\r\n[ATSO] Usage: ATSO=<ip>,<port>");
+#if ATCMD_VER == ATVER_2
+		at_printf("%sERROR:2\r\n", "+OTA:");
+#else
 		at_printf("\r\n[ATSO] ERROR:1");
+#endif
 		return;
 	}
 
 	// check wifi connect first
 	if(wifi_is_connected_to_ap()==0){
 		cmd_update(argc, argv);
+#if ATCMD_VER == ATVER_2
+		at_printf("%sOK\r\n", "+OTA:");
+		ATCMD_NEWLINE_HASHTAG();
+#else
 		at_printf("\r\n[ATSO] OK");
-		
+#endif
 	}else{
+#if ATCMD_VER == ATVER_2
+		at_printf("%sERROR:3\r\n", "+OTA:");
+		ATCMD_NEWLINE_HASHTAG();
+#else
 		at_printf("\r\n[ATSO] ERROR:3");
+#endif
 	}
 }
 
@@ -1464,23 +1616,40 @@ void fATSC(void *arg){
 	
 	if(!arg){
 		AT_DBG_MSG(AT_FLAG_OTA, AT_DBG_ERROR, "\r\n[ATSC] Usage: ATSC=<0/1>");
+#if ATCMD_VER == ATVER_2
+		at_printf("%sERROR:1\r\n", "+OTASET:");
+#else
 		at_printf("\r\n[ATSC] ERROR:1");
+#endif
 		return;
 	}
 	if((argc = parse_param(arg, argv)) != 2){
 		AT_DBG_MSG(AT_FLAG_OTA, AT_DBG_ERROR, "\r\n[ATSC] Usage: ATSC=<0/1>");
-	  at_printf("\r\n[ATSC] ERROR:1");
+#if ATCMD_VER == ATVER_2
+		at_printf("%sERROR:1\r\n", "+OTASET:");
+#else
+		at_printf("\r\n[ATSC] ERROR:1");
+#endif
 	  return;
 	}
 
 	cmd = atoi(argv[1]);
 
 	if((cmd!=0)&&(cmd!=1)){
+#if ATCMD_VER == ATVER_2
+		at_printf("%sERROR:2\r\n", "+OTASET:");
+#else
 		at_printf("\r\n[ATSC] ERROR:2");
+#endif
 		return;
 	}
-		
+
+#if ATCMD_VER == ATVER_2
+	at_printf("%sOK\r\n", "+OTASET:");
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[ATSC] OK");
+#endif
 
  	if(cmd == 1){
  		cmd_ota_image(1);
@@ -1511,13 +1680,13 @@ void fATSU(void *arg){
 	if(!arg){
 		AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ERROR, 
 		"[ATSU] Usage: ATSU=<baud>,<databits>,<stopbits>,<parity>,<flowcontrol>,<configmode>");
-		at_printf("\r\n[ATSU] ERROR:1");
+		at_printf("%sERROR:1\r\n", "+UARTCFG:");
 		return;
 	}
 	if((argc = parse_param(arg, argv)) != 7){
 		AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ERROR, 
 		"[ATSU] Usage: ATSU=<baud>,<databits>,<stopbits>,<parity>,<flowcontrol>,<configmode>");
-		at_printf("\r\n[ATSU] ERROR:1");
+		at_printf("%sERROR:1\r\n", "+UARTCFG:");
 		return;
 	}
 
@@ -1536,7 +1705,7 @@ void fATSU(void *arg){
     }
     
     if (log_uart_support_rate[i]== 0xFFFFFF) {
-		at_printf("\r\n[ATSU] ERROR:2");
+		at_printf("\r\n%sERROR:2", "+UARTCFG:");
         return;
     }
 */
@@ -1546,7 +1715,7 @@ void fATSU(void *arg){
 		((flowcontrol < 0) || (flowcontrol > 1))||\
 		((configmode < 0) || (configmode > 3))\
 		){
-		at_printf("\r\n[ATSU] ERROR:2");
+		at_printf("%sERROR:2\r\n", "+UARTCFG:");
 		return;
 	}
 	
@@ -1571,7 +1740,8 @@ void fATSU(void *arg){
 			break;
 	}
 	
-	at_printf("\r\n[ATSU] OK");
+	at_printf("%sOK\r\n", "+UARTCFG:");
+	ATCMD_NEWLINE_HASHTAG();
 }
 #endif //#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
 #endif //#if CONFIG_WLAN
@@ -1650,13 +1820,68 @@ void fATSG(void *arg)
 	
 exit:
 	if(error_no){
-		at_printf("\r\n[ATSG] ERROR:%d", error_no);
+		at_printf("%sERROR:%d\r\n", "+GPIO:", error_no);
+		ATCMD_NEWLINE_HASHTAG();
 	}
 	else{
-		at_printf("\r\n[ATSG] OK:%d", val);
+		at_printf("%sOK:%d\r\n", "+GPIO:", val);
+		ATCMD_NEWLINE_HASHTAG();
 	}
 }
 
+void fATRreg(void *arg)
+{
+#if 1   // !defined(CONFIG_PLATFORM_8195BHP)
+    int argc = 0;
+    char *argv[MAX_ARGC] = {0};
+
+    AT_DBG_MSG(AT_FLAG_DUMP, AT_DBG_ALWAYS, "[RREG]: _AT_SYSTEM_DUMP_REGISTER_");
+    if(!arg)
+    {
+        AT_DBG_MSG(AT_FLAG_DUMP, AT_DBG_ALWAYS, "[RREG] Usage: AT+RREG=REGISTER");
+        at_printf("%sERROR:1\r\n", "+RREG:");
+        return;
+    }
+    argc = parse_param(arg, argv);
+    if(argc == 2 || argc == 3)
+    {
+        CmdDumpWord(argc-1, (unsigned char**)(argv+1));
+        at_printf("%sOK\r\n", "+RREG:");
+		ATCMD_NEWLINE_HASHTAG();
+    }
+    else
+    {
+        at_printf("ERROR:2\r\n", "+RREG:");
+		ATCMD_NEWLINE_HASHTAG();
+    }
+#endif
+}
+
+void fATWreg(void *arg)
+{
+#if 1 // !defined(CONFIG_PLATFORM_8195BHP)
+    int argc = 0;
+    char *argv[MAX_ARGC] = {0};
+    
+    AT_DBG_MSG(AT_FLAG_EDIT, AT_DBG_ALWAYS, "[WREG]: _AT_SYSTEM_EDIT_REGISTER_");
+    if(!arg)
+    {
+        AT_DBG_MSG(AT_FLAG_EDIT, AT_DBG_ALWAYS, "[WREG] Usage: AT+WREG=REGISTER[VALUE]");
+        at_printf("%sERROR:1\r\n", "+WREG:");
+        return;
+    }
+    argc = parse_param(arg, argv);
+    if(argc == 3)
+    {
+        CmdWriteWord(argc-1, (unsigned char**)(argv+1));
+        at_printf("OK\r\n", "+WREG:");
+    }
+    else
+    {
+        at_printf("%sERROR:2\r\n", "+WREG:");
+    }
+#endif
+}
 #endif //#elif ATCMD_VER == ATVER_2
 #if defined(configUSE_WAKELOCK_PMU) && (configUSE_WAKELOCK_PMU == 1)
 void fATSL(void *arg)
@@ -1725,9 +1950,10 @@ void fATSL(void *arg)
 exit:
 #if ATCMD_VER == ATVER_2
 	if(err_no)
-		at_printf("\r\n[ATSL] ERROR:%d", err_no);
+		at_printf("%sERROR:%d\r\n", "+WAKELOCK:", err_no);
 	else
-		at_printf("\r\n[ATSL] OK:0x%08x",pmu_get_wakelock_status());
+		at_printf("%sOK:0x%08x\r\n", "+WAKELOCK:", pmu_get_wakelock_status());
+	ATCMD_NEWLINE_HASHTAG();
 #endif
 	return;
 }
@@ -1745,7 +1971,10 @@ log_item_t at_sys_items[] = {
 	{"ATSK", fATSK,},   // Set RDP/RSIP enable and key
 #endif
 #if CONFIG_OTA_UPDATE
-	{"ATSC", fATSC,},	// Clear OTA signature
+	{"ATCR", fATCR,},	// Clear OTA signature under rsip
+	{"ATRR", fATRR,},	// Recover OTA signature under rsip
+	{"ATSC", fATSC,},	// Clear OTA signature 
+
 	{"ATSR", fATSR,},	// Recover OTA signature
 #endif
 #if defined(CONFIG_UART_YMODEM) && CONFIG_UART_YMODEM
@@ -1776,30 +2005,38 @@ log_item_t at_sys_items[] = {
 	{"ATSV", fATSV},				// Write SW version for wifi logo test
 #endif
 #elif ATCMD_VER == ATVER_2 //#if ATCMD_VER == ATVER_1
-	{"AT", 	 fATS0,},	// test AT command ready
-	{"ATS?", fATSh,},	// list all AT command
-	{"ATSR", fATSR,},	// system restart
-	{"ATSV", fATSV,},	// show version info
+	{"+TEST", fATS0,},	// test AT command ready
+	{"+LIST", fATSh,},	// list all AT command
+	{"+RST", fATSR,},	// system restart
+	{"+GMR", fATSV,},	// show version info
 #if defined(CONFIG_PLATFORM_8195A)
-	{"ATSP", fATSP,},	// power saving mod
+#if ENABLE_MULTI_SLEEP_LEVEL
+        {"+DSLP", fATDeepSleep}, // Deep sleep mode
+        {"+SLPPG", fATAcqSleep},
+        {"+SLPCG", fATRelSleep},
+#else
+	{"+SLEEP", fATSP,},	// power saving mod
 #endif
-	{"ATSE", fATSE,},	// enable and disable echo
+#endif
+	{"+ECHOLEVEL", fATSE,},	// enable and disable echo
 #if CONFIG_WLAN
-	{"ATSY", fATSY,},	// factory reset
+	{"+RESTORE", fATSY,},	// factory reset
 #if CONFIG_OTA_UPDATE
-	{"ATSO", fATSO,},	// ota upgrate
-	{"ATSC", fATSC,},	// chose the activited image
+	{"+OTA", fATSO,},	// ota upgrate
+	{"+OTASET", fATSC,},	// chose the activited image
 #endif
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
-	{"ATSU", fATSU,},	// AT uart configuration
+	{"+UARTCFG", fATSU,},	// AT uart configuration
 #endif
 #endif
-	{"ATSG", fATSG,},	// GPIO control
+	{"+GPIO", fATSG,},	// GPIO control
+	{"+RREG", fATRreg}, // Read reg.
+	{"+WREG", fATWreg}, // Write reg.
 #endif // end of #if ATCMD_VER == ATVER_1
 
 // Following commands exist in two versions
 #if defined(configUSE_WAKELOCK_PMU) && (configUSE_WAKELOCK_PMU == 1)
-	{"ATSL", fATSL,{NULL,NULL}},	 // wakelock test
+	{"+WAKELOCK", fATSL,{NULL,NULL}},	 // wakelock test
 #endif
 #endif
 };
@@ -1811,7 +2048,7 @@ void print_system_at(void *arg){
 
 	cmd_len = sizeof(at_sys_items)/sizeof(at_sys_items[0]);
 	for(index = 0; index < cmd_len; index++)
-		at_printf("\r\n%s", at_sys_items[index].log_cmd);
+		at_printf("AT%s\r\n", at_sys_items[index].log_cmd);
 }
 #endif
 void at_sys_init(void)

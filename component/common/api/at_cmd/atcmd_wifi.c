@@ -3,6 +3,7 @@
 #include "semphr.h"
 #include "log_service.h"
 #include "atcmd_wifi.h"
+#include "atcmd_lwip.h"
 #include <lwip_netconf.h>
 #include "tcpip.h"
 #include <dhcp/dhcps.h>
@@ -160,6 +161,7 @@ u8 use_static_ip = 0;
 unsigned char dhcp_mode_sta = 1, dhcp_mode_ap = 1;
 unsigned char  ap_ip[4] = {192,168,43,1},  ap_netmask[4] = {255,255,255,0},  ap_gw[4] = {192,168,43,1};
 static void atcmd_wifi_disconn_hdl( char* buf, int buf_len, int flags, void* userdata);
+static void atcmd_wifi_connected_hdl( char* buf, int buf_len, int flags, void* userdata);
 #endif
 
 rtw_mode_t wifi_mode = RTW_MODE_STA;
@@ -190,7 +192,7 @@ static void init_wifi_struct(void)
 static void print_scan_result( rtw_scan_result_t* record )
 {
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
-	at_printf("%s,%d,%s,%d,"MAC_FMT"", record->SSID.val, record->channel,
+	at_printf("%s,%d,%s,%d,"MAC_FMT"\r\n", record->SSID.val, record->channel,
 			( record->security == RTW_SECURITY_OPEN ) ? "Open" :
 			( record->security == RTW_SECURITY_WEP_PSK ) ? "WEP" :
 			( record->security == RTW_SECURITY_WPA_TKIP_PSK ) ? "WPA TKIP" :
@@ -282,8 +284,8 @@ static rtw_result_t app_scan_result_handler( rtw_scan_handler_result_t* malloced
 		inic_c2h_msg("ATWS", RTW_SUCCESS, NULL, 0);
 #endif
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
-		at_printf("\r\n[ATWS] OK");
-		at_printf(STR_END_OF_ATCMD_RET);
+		at_printf("%sOK\r\n", "+WLSCAN:");
+		ATCMD_NEWLINE_HASHTAG();
 #endif
 		ApNum = 0;
 	}
@@ -349,10 +351,13 @@ exit:
 #endif
         init_wifi_struct( );
 #if ATCMD_VER == ATVER_2
-	if(error_no==0)
-		at_printf("\r\n[ATWD] OK");
-	else
-		at_printf("\r\n[ATWD] ERROR:%d",error_no);
+	if(error_no==0) {
+		wifi_reg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl, NULL);
+		at_printf("%sOK\r\n", "+WLDISCONN:");
+	} else {
+		at_printf("%sERROR:%d\r\n","+WLDISCONN:",error_no);
+	}
+	ATCMD_NEWLINE_HASHTAG();
 #endif
 	return;
 exit_success:
@@ -361,7 +366,8 @@ exit_success:
 #endif
 	init_wifi_struct( );
 #if ATCMD_VER == ATVER_2
-	at_printf("\r\n[ATWD] OK");
+	at_printf("%sOK\r\n", "+WLDISCONN:");
+	ATCMD_NEWLINE_HASHTAG();
 #endif	
 	return;
 }
@@ -486,7 +492,8 @@ exit:
 #endif
 #if ATCMD_VER == ATVER_2
 	if(error_no)
-		at_printf("\r\n[ATWS] ERROR:%d",error_no);
+		at_printf("%sERROR:%d\r\n", "+WLSCAN:",error_no);
+		ATCMD_NEWLINE_HASHTAG();
 #endif
 	if(arg && channel_list)
 		free(channel_list);
@@ -554,7 +561,7 @@ void fATWx(void *arg){
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
 			at_printf("%02x:%02x:%02x:%02x:%02x:%02x,", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]) ;
 			at_printf("%d.%d.%d.%d,", ip[0], ip[1], ip[2], ip[3]);
-			at_printf("%d.%d.%d.%d", gw[0], gw[1], gw[2], gw[3]);
+			at_printf("%d.%d.%d.%d\r\n", gw[0], gw[1], gw[2], gw[3]);
 #endif
 			printf("\n\rInterface (%s)", ifname[i]);
 			printf("\n\r==============================");
@@ -591,7 +598,7 @@ void fATWx(void *arg){
 						printf("\n\r\tMAC => "MAC_FMT"",
 										MAC_ARG(client_info.mac_list[client_number].octet));
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
-						at_printf("\r\nCLIENT : %d,"MAC_FMT"", client_number + 1, MAC_ARG(client_info.mac_list[client_number].octet));
+						at_printf("CLIENT : %d,"MAC_FMT"\r\n", client_number + 1, MAC_ARG(client_info.mac_list[client_number].octet));
 #endif
 #if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 						if(info){
@@ -654,7 +661,8 @@ void fATWx(void *arg){
 #endif
 
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
-	at_printf("\r\n[ATW?] OK");
+	at_printf("%sOK\r\n", "+WLSTATE:");
+	ATCMD_NEWLINE_HASHTAG();
 #endif
 
 }
@@ -854,23 +862,22 @@ void fATW7(void *arg){
 		printf("[ATW7]Usage: ATW7=[security]\n\r");
 		printf("        0 : Open\n\r");
 		printf("        1 : WEP\n\r");
-		printf("        2 : WPA2 TKIP\n\r");
-		printf("        3 : WPA2 AES\n\r");
-		printf("        4 : WPA3 AES\n\r");
-		printf("        5 : WPA2/WPA3 AES\n\r");
+		printf("        2 : WPA2 AES\n\r");
+		printf("        3 : WPA3 AES\n\r");
+		printf("        4 : WPA2/WPA3 AES\n\r");
 		return;
-	}	
+	}
 	volatile int ret = RTW_SUCCESS;
 	(void) ret;
 	printf("[ATW7]: _AT_WLAN_SET_SECURITY [%s]\n\r", (char*)arg);
-	if((strlen((const char *)arg) != 1 ) || (*(char*)arg <'0' ||*(char*)arg >'5')) {
-		printf("\n\rWrong num. Must be one of 0,1,2,3,4 or 5.");
+	if((strlen((const char *)arg) != 1 ) || (*(char*)arg <'0' ||*(char*)arg >'4')) {
+		printf("\n\rWrong num. Must be one of 0,1,2,3 or 4.");
 		ret = RTW_BADARG;
 		goto exit;
 	}
 	security = atoi((const char *)(arg));
-	if (((security == 1) || (security == 2)) && (CONFIG_AP_SECURITY != 1)) {
-		printf("\n\rset CONFIG_AP_SECURITY MACRO to 1 in platform_opts.h to set AP security to 1(WEP) or 2(TKIP)");
+	if ((security == 1) && (CONFIG_AP_SECURITY != 1)) {
+		printf("\n\rset CONFIG_AP_SECURITY MACRO to 1 in platform_opts.h to set AP security to 1(WEP)");
 	}
 exit:
 #if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
@@ -997,21 +1004,19 @@ void fATWA(void *arg){
 			ret = RTW_INVALID_KEY;
 			goto exit;
 		}
-	}	
+	}
 #ifdef CONFIG_AP_SECURITY
 		if(security == 0)
 			ap.security_type = RTW_SECURITY_OPEN;
 #if CONFIG_AP_SECURITY
 		else if(security == 1)
 			ap.security_type = RTW_SECURITY_WEP_PSK;
-		else if(security == 2)
-			ap.security_type = RTW_SECURITY_WPA2_TKIP_PSK;
 #endif
-		else if(security == 3)
+		else if(security == 2)
 			ap.security_type = RTW_SECURITY_WPA2_AES_PSK;
-		else if(security == 4)
+		else if(security == 3)
 			ap.security_type = RTW_SECURITY_WPA3_AES_PSK;
-		else if(security == 5)
+		else if(security == 4)
 			ap.security_type = RTW_SECURITY_WPA2_WPA3_MIXED;
 #endif
 
@@ -2190,11 +2195,11 @@ void fATPE(void *arg)
 
 exit:
 	if(error_no==0){
-		at_printf("\r\n[ATPE] OK");
+		at_printf("[ATPE] OK\r\n");
 		use_static_ip = 1;
 	}
     else
-        at_printf("\r\n[ATPE] ERROR:%d",error_no);
+        at_printf("[ATPE] ERROR:%d\r\n",error_no);
 
     return;
 
@@ -2432,6 +2437,7 @@ void fATPA(void *arg)
 #endif
 
 	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl);
+	wifi_unreg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl);
 
 #if (defined(CONFIG_PLATFORM_8710C)||defined(CONFIG_PLATFORM_8721D)) && (defined(CONFIG_BT) && CONFIG_BT)
 	if (wifi_set_mode(wifi_mode_new) < 0){
@@ -2507,10 +2513,10 @@ exit:
 	init_wifi_struct();
 
 	if(error_no == 0)
-		at_printf("\r\n[ATPA] OK");
+		at_printf("%sOK\r\n", "+WLSOFTAP:");
 	else
-		at_printf("\r\n[ATPA] ERROR:%d",error_no);
-
+		at_printf("%sERROR:%d\r\n", "+WLSOFTAP:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
 
@@ -2576,15 +2582,16 @@ static int _get_ap_security_mode(IN char * ssid, OUT rtw_security_t *security_mo
 //ATPN=<ssid>,<pwd>[,<key_id>,<bssid>]
 static void atcmd_wifi_disconn_hdl( char* buf, int buf_len, int flags, void* userdata)
 {
-	#if CONFIG_LOG_SERVICE_LOCK
-	log_service_lock();
-	#endif
-	at_printf("\r\n[ATWD] OK");			
-	at_printf(STR_END_OF_ATCMD_RET);
-	#if CONFIG_LOG_SERVICE_LOCK
-	log_service_unlock();
-	#endif
+	at_printf("%sOK\r\n", "+WLDISCONN:");
+	ATCMD_NEWLINE_HASHTAG();
 }
+
+static void atcmd_wifi_connected_hdl( char* buf, int buf_len, int flags, void* userdata)
+{
+	at_printf("%sOK\r\n", "+WLCONN:");
+	ATCMD_NEWLINE_HASHTAG();
+}
+
 void fATPN(void *arg)
 {
 	int argc, error_no = 0;
@@ -2690,7 +2697,7 @@ void fATPN(void *arg)
 #endif
 	}
 
-#if 1
+#if CONFIG_INIC_EN
 	/************************************************************
 	*    Get security mode from scan list, if it's WEP and key_id isn't set by user,
 	*    system will use default key_id = 0
@@ -2717,7 +2724,47 @@ void fATPN(void *arg)
 		wifi_set_pscan_chan(&connect_channel, &pscan_config, 1);
 #endif
 
+	if(rltk_wlan_channel_switch_announcement_is_enable()){
+        printf("[ATPN]rltk_wlan_channel_switch_announcement_is_enable\r\n");
+		if(wifi_mode == RTW_MODE_STA_AP){
+			int security_retry_count = 0;
+			while (1) {
+				if (_get_ap_security_mode((char*)wifi.ssid.val, &wifi.security_type, &connect_channel))
+					break;
+				security_retry_count++;
+				if(security_retry_count >= 3){
+					printf("Can't get AP security mode and channel.\n");
+					ret = RTW_NOTFOUND;
+					goto exit;
+				}
+			}
+			//disable wlan1 issue_deauth when channel switched by wlan0
+			ret = wifi_set_ch_deauth(0);
+			if(ret != 0){
+				printf("wifi_set_ch_deauth FAIL\n");
+				goto exit;
+			}
+			//softap switch chl and inform
+			if(wifi_ap_switch_chl_and_inform(connect_channel)!=RTW_SUCCESS)
+				printf("wifi_ap_switch_chl_and_inform FAIL\n");
+
+			pscan_config = PSCAN_ENABLE;
+			if(connect_channel > 0 && connect_channel <= 165) {
+				wifi_set_pscan_chan(&connect_channel, &pscan_config, 1);
+			}
+		}
+	}
+
+	if(wifi_mode == RTW_MODE_STA_AP) {
+		ret = wifi_set_ch_deauth(0);
+		if(ret != 0){
+			printf("wifi_set_ch_deauth FAIL\n");
+			goto exit;
+		}
+	}
+
 	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl);
+	wifi_unreg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl);
 	if(assoc_by_bssid){
 		ret = wifi_connect_bssid(wifi.bssid.octet, (char*)wifi.ssid.val, wifi.security_type, (char*)wifi.password,
 						ETH_ALEN, wifi.ssid.len, wifi.password_len, wifi.key_id, NULL);
@@ -2747,17 +2794,23 @@ void fATPN(void *arg)
 
 
 exit:
+	if(wifi_mode == RTW_MODE_STA_AP) {
+		wifi_set_ch_deauth(1);
+	}
+	
 	init_wifi_struct();
+	wifi_reg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl, NULL);
 	if(error_no == 0){
 		wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl, NULL);
-		at_printf("\r\n[ATPN] OK");
+		at_printf("%sOK\r\n", "+WLCONN:");
 	}
 	else
-		at_printf("\r\n[ATPN] ERROR:%d",error_no);
-
+		at_printf("%sERROR:%d\r\n", "+WLCONN:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
     return;
 }
 
+#if ENABLE_SET_AP_MODE
 //ATPH=<mode>,<enable>
 void fATPH(void *arg)
 {
@@ -2803,13 +2856,14 @@ void fATPH(void *arg)
 
 exit:
 	if(error_no==0)
-		at_printf("\r\n[ATPH] OK");
+		at_printf("%sOK\r\n", "+WLDMOD:");
 	else
-		at_printf("\r\n[ATPH] ERROR:%d",error_no);
-
+		at_printf("%sERROR:%d\r\n", "+WLDMOD:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 
 }
+#endif
 
 //ATPE=<ip>(,<gateway>,<mask>)
 void fATPE(void *arg)
@@ -2876,14 +2930,15 @@ void fATPE(void *arg)
 
 exit:
 	if(error_no==0)
-		at_printf("\r\n[ATPE] OK");
+		at_printf("%sOK\r\n", "+WLSTATICIP:");
 	else
-		at_printf("\r\n[ATPE] ERROR:%d",error_no);
-
+		at_printf("%sERROR:%d\r\n", "+WLSTATICIP:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 
 }
 
+#if ENABLE_SET_AP_MODE
 //ATPF=<start_ip>,<end_ip>,<gateway>
 void fATPF(void *arg)
 {
@@ -2959,12 +3014,13 @@ void fATPF(void *arg)
 
 exit:
 	if(error_no==0)
-		at_printf("\r\n[ATPF] OK");
+		at_printf("%sOK\r\n", "+WLDRULE:");
 	else
-		at_printf("\r\n[ATPF] ERROR:%d",error_no);
-
+		at_printf("%sERROR:%d\r\n", "+WLDRULE:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
+#endif
 
 int atcmd_wifi_read_info_from_flash(u8 *read_data, u32 read_len)
 {
@@ -3126,6 +3182,8 @@ int atcmd_wifi_restore_from_flash(void)
 		//setup reconnection flag
 		wifi_set_autoreconnect(0);
 #endif
+		wifi_reg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl, NULL);
+
 		int last_index = data->reconn_last_index;
 		for(i = 0; i < data->reconn_num; i++){
 			reconn = &data->reconn[last_index];
@@ -3242,11 +3300,55 @@ void fATPG(void *arg)
 
 exit:
 	if(error_no==0)
-		at_printf("\r\n[ATPG] OK");
+		at_printf("%sOK\r\n", "+WLAUTOCONN:");
 	else
-		at_printf("\r\n[ATPG] ERROR:%d",error_no);
-
+		at_printf("%sERROR:%d\r\n", "+WLAUTOCONN:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
+}
+
+//ATPG=<enable>
+void fATRC(void *arg)
+{
+	int error_no = 0;
+	int argc = 0, mode = 0;
+	char *argv[MAX_ARGC] = {0};
+
+	if (arg == NULL) {
+		printf("[+WLRECONN] Invalid parameter\r\n");
+		error_no = 1;
+		goto end;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc != 2 || argv[1] == NULL) {
+		printf("[+WLRECONN] Invalid parameter number\r\n");
+		error_no = 1;
+		goto end;
+	}
+
+	mode = atoi(argv[1]);
+	if (mode == 0) {
+		printf("[+WLRECONN] Disable autoreconnect\r\n");
+		wifi_set_autoreconnect(0);
+	} else if (mode == 1) {
+		printf("[+WLRECONN] Enable autoreconnect with default times\r\n");
+		wifi_set_autoreconnect(1);
+	} else if (mode == 2){
+		printf("[+WLRECONN] Enable autoreconnect with infinate times\r\n");
+		wifi_set_autoreconnect(2);
+	} else {
+		error_no = 2;
+	}
+	
+
+end:
+	if (error_no == 0) {
+		at_printf("%sOK\r\n", "+WLRECONN:");
+	} else {
+		at_printf("%sERROR:%d\r\n", "+WLRECONN:", error_no);
+	}
+	ATCMD_NEWLINE_HASHTAG();
 }
 
 //ATPM=<mac>
@@ -3280,14 +3382,15 @@ void fATPM(void *arg)
 
 exit:
 	if(error_no==0)
-		at_printf("\r\n[ATPM] OK");
+		at_printf("%sOK\r\n", "+WLMAC:");
 	else
-		at_printf("\r\n[ATPM] ERROR:%d",error_no);
-
+		at_printf("%sERROR:%d\r\n","+WLMAC:",error_no);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 
 }
 
+#if ENABLE_SET_AP_MODE
 //ATPW=<mode>
 void fATPW(void *arg)
 {
@@ -3309,20 +3412,893 @@ void fATPW(void *arg)
 	}
 
 	if(argv[1] != NULL){
-		wifi_mode_new = atoi((const char *)(argv[1]));
-		if((wifi_mode_new!=RTW_MODE_STA) && (wifi_mode_new!=RTW_MODE_AP) && (wifi_mode_new!=RTW_MODE_STA_AP) ){
-			//at_printf("\r\n[ATPW] ERROR : parameter must be 1 , 2 or 3");
-			error_no = 2;
+	        if('?' == argv[1][0]){
+	            at_printf("%s%d\r\n", "+WLMODE:", wifi_mode_new);
+	            goto exit;
+	        }
+	        else{
+        		wifi_mode_new = atoi((const char *)(argv[1]));
+        		if((wifi_mode_new!=RTW_MODE_STA) && (wifi_mode_new!=RTW_MODE_AP) && (wifi_mode_new!=RTW_MODE_STA_AP) ){
+        			//at_printf("\r\n[ATPW] ERROR : parameter must be 1 , 2 or 3");
+        			error_no = 2;
+					goto exit;
+        		}
+				wifi_set_mode(wifi_mode_new);
 		}
 	}
 
 exit:
 	if(error_no==0)
-		at_printf("\r\n[ATPW] OK");
+		at_printf("%sOK\r\n", "+WLMODE:");
 	else
-		at_printf("\r\n[ATPW] ERROR:%d",error_no);
-
+		at_printf("%sERROR:%d\r\n","+WLMODE:",error_no);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
+}
+#endif
+
+extern char *http_post_header(char *host, char *resource, char *type, int data_len);
+ extern char *http_get_header(char *host, char *resource);
+
+ struct hostent *http_host;
+ char *http_resourse;
+ char *http_content;
+ int  http_type;
+ int http_port;
+ char *host ;
+ char *post_data;
+ char* port_ssl;
+ int ssl_verify;
+
+ void http_client_ver2(void)
+ {
+	// char *message_fmt = "POST / HTTP/1.0\r\n\r\n"; 
+	 int sockfd, bytes;
+	 char message[512],*response;
+	 int error_no = 0;
+     struct sockaddr_in serv_addr;
+
+	memset(&serv_addr,0,sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(http_port);
+    memcpy(&serv_addr.sin_addr.s_addr,http_host->h_addr,4);
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	 
+	 if(sockfd < 0)
+	 	{
+
+		printf("[ERROR] http client Create socket failed\n");
+		 error_no = 20;
+		goto exit;
+	 
+	 	}
+	 
+	 if (connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr)) < 0){
+		 printf("[ERROR] http client connect failed\n");
+		 error_no = 21;
+		goto exit;
+	 }
+
+	// printf("http_type is %d ",http_type);
+ if  (http_type == 2)
+	
+{
+	
+	 //send get request
+	sprintf(message,"%s",http_get_header(host,http_resourse));
+	printf("\nRequest:\n%s\n",message);
+	 bytes = write(sockfd,message,256);
+	 if (bytes < 0){
+		 printf("[ERROR] http client send get packet failed\n");
+	     error_no = 21;
+		goto exit;}
+	 
+		}
+ 
+    //set post request 
+   
+
+ else if(http_type ==3 )
+ 	{
+
+	sprintf(message,"%s",http_post_header(host, http_resourse,http_content ,strlen(post_data)));
+	printf("\nRequest header :\n%s\n",message);
+	bytes = write(sockfd,message,1024);
+	
+	
+		if (bytes < 0)
+			{printf("[ERROR] http client send post packet failed\n");
+		    error_no = 22;
+		    goto exit;}
+
+			write(sockfd,post_data,strlen(post_data));
+			printf("\nRequest body :\n%s\n",post_data);
+			
+
+	    }
+
+	else
+		{
+          printf("\n\rhttp_type set err\n\r");
+		  goto exit;
+	
+	   }
+
+ 	
+	 //receive response
+	
+	 response = malloc(1500);
+	 if(response ==NULL)
+		 printf("[ERROR] malloc failed\n");
+	 printf("Response:\n");
+	 do {
+		 memset(response,0,1500);
+		 bytes = read(sockfd,response,1500-1);
+		 if (bytes < 0)
+			 printf("[ERROR] http client receive packet failed\n");
+		 if (bytes == 0)
+			 break;
+		 printf("%s",response);
+		 
+	 } while (bytes > 0);
+	 
+ exit:
+ 	 at_printf("%sERROR:%d\r\n", "+HTTPCLIENT:", error_no);
+	 ATCMD_NEWLINE_HASHTAG();
+	 //close the socket
+	  free(response);
+	  close(sockfd);
+
+ return;
+ }
+
+#include "mbedtls/platform.h"
+#include "mbedtls/net_sockets.h"
+#include "mbedtls/ssl.h"
+#include "mbedtls/error.h"
+#include "mbedtls/debug.h"
+#include "mbedtls/version.h"
+#include "mbedtls/config.h"
+#include "mbedtls/certs.h"
+
+
+ static void my_debug(void *ctx, int level, const char *file, int line, const char *str)
+{
+	/* To avoid gcc warnings */
+	( void ) ctx;
+	( void ) level;
+	
+	printf("\n\r%s:%d: %s\n\r", file, line, str);
+}
+
+extern int rtw_get_random_bytes(void* dst, u32 size);
+static int my_random(void *p_rng, unsigned char *output, size_t output_len)
+{
+	/* To avoid gcc warnings */
+	( void ) p_rng;
+	
+	rtw_get_random_bytes(output, output_len);
+	return 0;
+}
+
+static void* my_calloc(size_t nelements, size_t elementSize)
+{
+	size_t size;
+	void *ptr = NULL;
+
+	size = nelements * elementSize;
+	ptr = pvPortMalloc(size);
+
+	if(ptr)
+		memset(ptr, 0, size);
+ return ptr;
+}
+
+#define STACKSIZE     1150
+#define SERVER_PORT   "443"
+#define DEBUG_LEVEL   0
+
+#define my_free		vPortFree
+
+
+static  unsigned char test_client_key[2048] =  \
+	"-----BEGIN PRIVATE KEY-----\r\n" \
+	"MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCsTIOSoYt6mO+C\r\n" \
+	"PE4Lg1dk8E6k18k4yyRrt72l6PU4da6qCBUiuVE/GY76BzoUhR2I7aHjUiY7g5dj\r\n" \
+	"a/SdNzsdC0jxBax782DcZ/Z2keawq2SrxsxIs65d0d6mmqiua11lO4uvT2LD5T5W\r\n" \
+	"HGwJV/pRYsBmc0Nmtm65gSLspwm5ydgAjP5ZcfGrAwvL8vyX0sbDlBKhsZO4nMv6\r\n" \
+	"I17Kfn6RFaXYeuf7gXu476QAqxkTFgOJ4e+wp9XkH98atdB8wrKk3CXp0Q5VLV+M\r\n" \
+	"l6CS77DNuS9cS5ffVUwemoJNpOg8Ew97Ys6cDRyE6AINUMTXuyicamDM8mkbFOZw\r\n" \
+	"RBdkkMIpAgMBAAECggEAAqQPljVEqoXikefzuEh0k/b89ZjbHDQ85CvGS980tv9S\r\n" \
+	"xIdoL4aQoLt3Dg0DTmI18C3YP+A39syPCvaSIsDAdrMAFLWmDaZO00ICrJGS7B1M\r\n" \
+	"ZzeeVPTwFL8NPxd6w2Wg4lbVzsOUO3VtjatU2pXPH+U4FrnojA/6xXwduWvcAc14\r\n" \
+	"QVlbnDhd4sCLlm+3aNwUH0wY/DgEmeqYaCrIsAvKaayovDIkMAHprvDPR4MONv7r\r\n" \
+	"whmxi1m7SS8jRRv7Ueci7wylB1Oa/oEoqdG9hJSKb5JKKJ9b4O5qO193ahVrlOr/\r\n" \
+	"f1CBD1xuuYZJdyThQEq3g8QVZ0ejpKQdA/Cgr9avWwKBgQDKlsHB4j990F/nfkTd\r\n" \
+	"uP5tRTBxga2Wl+0YV256lxyLbP67Fn+IQAtlCwVQaaToYdc9m7La5ewAhCTxTUa2\r\n" \
+	"+KosygpK1DCwT4GnNuSqCie/TQIivx1c42z8k605RRw1RoXvTN9mTodkEV+xnuqu\r\n" \
+	"pMt3Qqxk0DpKJTT2b+CR8mFLDwKBgQDZuWgb0xPX2ocFeIugkj/GWP9FzpbUfs3y\r\n" \
+	"Y9Yvztk7Rfd3OAKqv6QKe9alkhi8l/rq4PGf7jclzXWGZYRl37oDk9K6V9qlm5zl\r\n" \
+	"UmkY25fmQrpuX1/MjwKle3UtHTgfkV+n8FQqBowyiXJmPR/GIZ1MDQGay6YsZW9h\r\n" \
+	"RSmjJR//RwKBgG0KG5uJdPb40sW8dsCIM5kIpnxReecWOqzhUjt1Xg3FSo3UHCxv\r\n" \
+	"nDJ0bhXL5tCU6M7mIKwlGJNmjKO8HhWZXa7hyAxijRo4kOY5a3YCJUaX4lBlYR5/\r\n" \
+	"4kdIDPJIOliKbshQLeXY2pKHr2PgzxvU4xZ7smJImTcTM6B4svya4rcNAoGABkx+\r\n" \
+	"3o80u8HuthHOuE6C2dIpUHOxmWQxwRlyUN/DGRvlFOXh7d6teEAs7Y1UeeBLug/X\r\n" \
+	"7bCOl+FhzQmS0v+t+fyE1C9GfBQMbfX8ZGO1+Utk6VyJAPoCMZdoxG1b+k3SXqFt\r\n" \
+	"TenylGO1k4+hI7JFQrX9neTWYeJtXnsJwVaJnnECgYEAtgLApWfQVyr3yyGh7ur3\r\n" \
+	"lYqQI5U6EAH8p8yA3otTeI22BgOvARH57yjK2PDyhFuA2efFX2+ipNAIXmiiIl1K\r\n" \
+	"wvu0YpiZAkH8D0dmxECS/GaluoqhA7pK6QjlRS2sFZ9n4C8vet79bFYZQ4fXazKw\r\n" \
+	"w4KeMcb6l+GyVQv9CSdB5lw=\r\n" \
+	"-----END PRIVATE KEY-----\r\n";
+
+static unsigned char test_client_crt[2048] =  \
+	"-----BEGIN CERTIFICATE-----\r\n" \
+	"MIIDozCCAosCFG8LuhxSx/IA0zALJmeB5JUV7jmiMA0GCSqGSIb3DQEBCwUAMIGN\r\n" \
+	"MQswCQYDVQQGEwJDTjEQMA4GA1UECAwHSmlhbmdTdTEPMA0GA1UEBwwGU3VaaG91\r\n" \
+	"MRAwDgYDVQQKDAdSZWFsc2lsMQ8wDQYDVQQLDAZjbGllbnQxFDASBgNVBAMMC2Ns\r\n" \
+	"aWVudF90ZXN0MSIwIAYJKoZIhvcNAQkBFhNjbGllbnRfdGVzdEAxMjMuY29tMB4X\r\n" \
+	"DTIzMDYwNjA3MTk0NloXDTMzMDYwMzA3MTk0NlowgY0xCzAJBgNVBAYTAkNOMRAw\r\n" \
+	"DgYDVQQIDAdKaWFuZ1N1MQ8wDQYDVQQHDAZTdVpob3UxEDAOBgNVBAoMB1JlYWxz\r\n" \
+	"aWwxDzANBgNVBAsMBmNsaWVudDEUMBIGA1UEAwwLY2xpZW50X3Rlc3QxIjAgBgkq\r\n" \
+	"hkiG9w0BCQEWE2NsaWVudF90ZXN0QDEyMy5jb20wggEiMA0GCSqGSIb3DQEBAQUA\r\n" \
+	"A4IBDwAwggEKAoIBAQCsTIOSoYt6mO+CPE4Lg1dk8E6k18k4yyRrt72l6PU4da6q\r\n" \
+	"CBUiuVE/GY76BzoUhR2I7aHjUiY7g5dja/SdNzsdC0jxBax782DcZ/Z2keawq2Sr\r\n" \
+	"xsxIs65d0d6mmqiua11lO4uvT2LD5T5WHGwJV/pRYsBmc0Nmtm65gSLspwm5ydgA\r\n" \
+	"jP5ZcfGrAwvL8vyX0sbDlBKhsZO4nMv6I17Kfn6RFaXYeuf7gXu476QAqxkTFgOJ\r\n" \
+	"4e+wp9XkH98atdB8wrKk3CXp0Q5VLV+Ml6CS77DNuS9cS5ffVUwemoJNpOg8Ew97\r\n" \
+	"Ys6cDRyE6AINUMTXuyicamDM8mkbFOZwRBdkkMIpAgMBAAEwDQYJKoZIhvcNAQEL\r\n" \
+	"BQADggEBAAJYPqTxLqrQeTzQ3C9gvueH/30COVIz8q5bzipUafePbEy46ynpwuDc\r\n" \
+	"OMVJGqdXb/orO0SEAacj7AXI49W07HRfU5uSu/OjdTa+CGEkabMF+oYYswrAOq5d\r\n" \
+	"JjSXUmAn5VWjqJT4lzIegZENrYsTc1uPSg1mIitpOew4KU8LpnGbXNFiZB/8Y5TN\r\n" \
+	"5rd3PD7OklBNLBcDf7/hY5PXPy2a7nrpA6Cd2fHULFfTGVxQIbCW+oDXXTjLGeuT\r\n" \
+	"ky9y9L1KOHnIIl1T3kM40gSMWfAGP1bANUYhojB4zK+T2PuzsBon9vgzJylhqoOF\r\n" \
+	"l7c6sZbFeWhh2E/rMWbat23ALMH0LI8=\r\n" \
+	"-----END CERTIFICATE-----\r\n";
+static  unsigned char test_ca_crt[2048] =  \
+	"-----BEGIN CERTIFICATE-----\r\n" \
+	"MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF\r\n"\
+    "ADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6\r\n"\
+    "b24gUm9vdCBDQSAxMB4XDTE1MDUyNjAwMDAwMFoXDTM4MDExNzAwMDAwMFowOTEL\r\n"\
+    "MAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEZMBcGA1UEAxMQQW1hem9uIFJv\r\n"\
+    "b3QgQ0EgMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALJ4gHHKeNXj\r\n"\
+    "ca9HgFB0fW7Y14h29Jlo91ghYPl0hAEvrAIthtOgQ3pOsqTQNroBvo3bSMgHFzZM\r\n"\
+    "9O6II8c+6zf1tRn4SWiw3te5djgdYZ6k/oI2peVKVuRF4fn9tBb6dNqcmzU5L/qw\r\n"\
+    "IFAGbHrQgLKm+a/sRxmPUDgH3KKHOVj4utWp+UhnMJbulHheb4mjUcAwhmahRWa6\r\n"\
+    "VOujw5H5SNz/0egwLX0tdHA114gk957EWW67c4cX8jJGKLhD+rcdqsq08p8kDi1L\r\n"\
+    "93FcXmn/6pUCyziKrlA4b9v7LWIbxcceVOF34GfID5yHI9Y/QCB/IIDEgEw+OyQm\r\n"\
+    "jgSubJrIqg0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMC\r\n"\
+    "AYYwHQYDVR0OBBYEFIQYzIU07LwMlJQuCFmcx7IQTgoIMA0GCSqGSIb3DQEBCwUA\r\n"\
+    "A4IBAQCY8jdaQZChGsV2USggNiMOruYou6r4lK5IpDB/G/wkjUu0yKGX9rbxenDI\r\n"\
+     "U5PMCCjjmCXPI6T53iHTfIUJrU6adTrCC2qJeHZERxhlbI1Bjjt/msv0tadQ1wUs\r\n"\
+     "N+gDS63pYaACbvXy8MWy7Vu33PqUXHeeE6V/Uq2V8viTO96LXFvKWlJbYK8U90vv\r\n"\
+     "o/ufQJVtMVT8QtPHRh8jrdkPSHCa2XV4cdFyQzR1bldZwgJcJmApzyMZFo6IQ6XU\r\n"\
+     "5MsI+yMRQ+hDKXJioaldXgjUkK642M4UwtBV8ob2xJNDd2ZhwLnoQdeXeGADbkpy\r\n"\
+     "rqXRfboQnoZsG4q5WTP468SQvvG5\r\n"\
+	"-----END CERTIFICATE-----\r\n";
+
+
+
+
+	mbedtls_x509_crt client_x509;
+	mbedtls_pk_context client_pk;
+	mbedtls_pk_context client_pub_key;
+	
+
+static void  https_client_ver2(void)
+
+{   int ret, len,https_err;
+	int retry_count = 0;
+	unsigned char buf[512];
+	mbedtls_net_context server_fd;
+	mbedtls_ssl_context ssl;
+	mbedtls_ssl_config conf;
+	
+	
+
+	#if defined(configENABLE_TRUSTZONE) && (configENABLE_TRUSTZONE == 1) && defined(CONFIG_SSL_CLIENT_PRIVATE_IN_TZ) && (CONFIG_SSL_CLIENT_PRIVATE_IN_TZ == 1)
+	rtw_create_secure_context(STACKSIZE*4);
+	extern int NS_ENTRY secure_mbedtls_platform_set_calloc_free(void);
+	secure_mbedtls_platform_set_calloc_free();
+	extern void NS_ENTRY secure_set_ns_device_lock(void (*device_mutex_lock_func)(uint32_t), void (*device_mutex_unlock_func)(uint32_t));
+	secure_set_ns_device_lock(device_mutex_lock, device_mutex_unlock);
+#endif
+
+	mbedtls_platform_set_calloc_free(my_calloc, my_free);
+
+
+/*  
+ *  Prepare the certificate and key
+ */
+
+	if(ssl_verify == 2){
+
+    printf("\n\r set client ssl verify \n\r");
+	mbedtls_x509_crt_init(&client_x509);
+	mbedtls_pk_init(&client_pk);
+	
+
+	
+
+		if ((ret = mbedtls_x509_crt_parse(&client_x509, (const unsigned char *) test_client_crt, strlen((char const *)test_client_crt) + 1)) != 0) {
+			https_err =12;
+			printf(" failed\n  ! mbedtls_x509_crt_parse returned %d,http_err is %d\n\n", ret,https_err);
+			 goto exit;
+		}
+	
+		if ((ret = mbedtls_x509_crt_parse(&client_x509, (const unsigned char *) test_ca_crt, strlen((char const *)test_ca_crt) + 1)) != 0) {
+             https_err =13;
+			printf(" failed\n  ! mbedtls_x509_crt_parse returned %d,http_err is %d\n\n", ret,https_err);
+			goto exit;
+		}
+		
+	if ((ret = mbedtls_pk_parse_key(&client_pk, (const unsigned char *) test_client_key, strlen((char const *)test_client_key) + 1, NULL, 0)) != 0) {
+		https_err =14;
+		printf(" failed\n  ! mbedtls_pk_parse_key returned %d,http_err is %d\n\n", ret,https_err);
+		 goto exit;
+
+	    }
+
+		
+	}
+
+
+	/*
+	 * 1. Start the connection
+	 */
+	printf("\n\r  . Connecting to tcp/%s/%s...", host, port_ssl);
+
+	mbedtls_net_init(&server_fd);
+
+	if((ret = mbedtls_net_connect(&server_fd, host, port_ssl, MBEDTLS_NET_PROTO_TCP)) != 0) {
+		https_err =14;
+		printf(" failed\n\r  ! mbedtls_net_connect returned %d,http_err is %d\n", ret,https_err);
+		goto exit;
+	}
+
+	printf(" ok\n");
+
+	/*
+	 * 2. Setup stuff
+	 */
+	printf("  . Setting up the SSL/TLS structure...");
+
+	mbedtls_ssl_init(&ssl);
+	mbedtls_ssl_config_init(&conf);
+    mbedtls_ssl_set_bio(&ssl, &server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
+
+	if((ret = mbedtls_ssl_config_defaults(&conf,
+		MBEDTLS_SSL_IS_CLIENT,
+		MBEDTLS_SSL_TRANSPORT_STREAM,
+		MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
+        https_err =15;
+		printf(" failed\n  ! mbedtls_ssl_config_defaults returned %d,http_err is %d\n", ret,https_err);
+		goto exit;
+	}
+
+
+if(ssl_verify == 2){
+
+	    mbedtls_ssl_conf_ca_chain(&conf, client_x509.next, NULL);
+	    mbedtls_ssl_conf_own_cert(&conf, &client_x509, &client_pk);
+		mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+
+			}
+ else 
+	{
+	mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_NONE);
+ }
+
+    mbedtls_ssl_conf_rng(&conf, my_random, NULL);
+	
+	
+	if((ret = mbedtls_ssl_setup(&ssl, &conf)) != 0) {
+		https_err =16;
+		printf(" failed\n  ! mbedtls_ssl_setup returned %d,http_err is %d\n\n", ret,https_err);
+		goto exit;
+	}
+
+	printf(" ok\n");
+
+	/*
+	 * 3. Handshake
+	 */
+	printf("\n\r  . Performing the SSL/TLS handshake...");
+
+	while((ret = mbedtls_ssl_handshake(&ssl)) != 0) {
+		if((ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE
+			&& ret != MBEDTLS_ERR_NET_RECV_FAILED) || retry_count >= 5) {
+			
+            https_err =16;
+			printf(" failed\n\r  ! mbedtls_ssl_handshake returned -0x%x,http_err is %d\n\n", -ret,https_err);
+			goto exit;
+		}
+
+		retry_count++;
+	}
+
+	printf(" ok\n");
+	printf("\n\r  . Use ciphersuite %s\n", mbedtls_ssl_get_ciphersuite(&ssl));
+
+
+	//printf("http_type is %d ",http_type);
+	
+if	(http_type == 2)
+  {
+	/*
+	 * 4. Write the GET request
+	 */
+	printf("\n\r  > Write to server:");
+
+	//len = sprintf((char *) buf, GET_REQUEST);
+	len = sprintf(buf, "GET %s HTTP/1.1\r\nHost: %s\r\n\r\n", http_resourse, host);
+
+	while((ret = mbedtls_ssl_write(&ssl, buf, len)) <= 0) {
+		if(ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
+			https_err =17;
+			printf(" failed\n\r  ! mbedtls_ssl_write returned %d,http_err is %d\n", ret,https_err);
+			goto exit;
+		}
+	}
+
+	len = ret;
+	printf(" %d bytes written\n\n%s", len, (char *) buf);
+}
+
+
+ else if(http_type == 3)
+     {
+    /*
+	 *5. Write the POST request
+     */
+		printf("\n\r  > Write POST to server:");
+
+        //post_datachar *post_data_1 = "param1=test_data1&param2=test_data2";
+       // char *len_str = http_itoa(strlen(post_data));
+		len = sprintf(buf, "POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: %s\r\nContent-Length: %d\r\n\r\n", http_resourse, host, http_content,strlen(post_data) );
+     
+		while((ret = mbedtls_ssl_write(&ssl, buf, len)) <= 0) {
+				if(ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
+					https_err =18;
+					printf(" failed\n\r  ! mbedtls_ssl_write returned %d,http_err is %d\n\n", ret,https_err);
+					goto exit;
+				}
+			}
+
+		    len = ret;
+			printf(" %d bytes header  written\n\n%s", len, (char *) buf);
+			
+	     while(( ret = mbedtls_ssl_write(&ssl, (unsigned char*)post_data,strlen(post_data ))) <=0){
+		  
+		         printf(" failed\n\r  ! mbedtls_ssl_write poat_data returned %d\n\r",ret);
+				 	
+					goto exit;
+	     	}
+		  printf("write post data to server %s",post_data);
+			
+}
+
+else {
+	printf("\n\rhttp_type set err\n\r");
+		  goto exit;
+      }
+
+     /*
+	 * 6. Read the HTTP response
+	 */
+	printf("  < Read from server:" );
+
+   int read_size = 0, resource_size = 0;
+   len = sizeof(buf) - 1;
+   memset(buf, 0, sizeof(buf));
+
+	
+		while((read_size = mbedtls_ssl_read(&ssl, buf, len)) > 0) {
+			
+
+			printf("\n\r read resource %d bytes,%s\n\r", read_size,buf);
+			resource_size += read_size;
+		}
+
+		printf("exit read. ret = %d\n", read_size);
+		
+
+	
+
+	mbedtls_ssl_close_notify(&ssl);
+
+exit:
+    mbedtls_net_free(&server_fd);
+	mbedtls_ssl_free(&ssl);
+	mbedtls_ssl_config_free(&conf);
+	if(ssl_verify == 2)
+		{
+
+		mbedtls_x509_crt_free(&client_x509);
+		mbedtls_pk_free(&client_pk);
+
+	}
+
+
+
+}
+ static void https_client_thread_ver2(void *param)
+ {
+	 /* To avoid gcc warnings */
+	 ( void ) param;
+	
+	 https_client_ver2();
+	 vTaskDelete(NULL);
+ }
+
+
+ 
+ static void http_client_thread_ver2(void *param)
+ {
+	 /* To avoid gcc warnings */
+	( void ) param;
+	 
+	 http_client_ver2();
+	 vTaskDelete(NULL);
+ }
+
+/* http/https get/post example   */
+void fATPb(void *arg)
+{
+ int argc;
+ char *argv[MAX_ARGC] = {0};
+ int error_no = 0;
+  int transport_type;
+
+ argc = parse_param(arg, argv);
+ 
+	if(!arg){
+		AT_DBG_MSG(AT_FLAG_WIFI, AT_DBG_ERROR,
+			"[+HTTPCLIENT] Usage: AT+HTTPCLIENT=<HTTP:1/HTTPS:2><host>,<port>,<GET:2/POST:3>,<path>,<ca:1:N/2:Y>,<content-type>,<data>\n\r "\
+			"          eg:AT+HTTPCLIENT=2,httpbin.org,443,3,/post,2,application/json,param1=test_data1&param2=test_data2 \n\r   "\
+			"             AT+HTTPCLIENT=1,httpbin.org,80,2,/get?param1=test_data1&param2=test_data2,0,0,0 \n\r "
+			);
+		error_no = 1;
+		goto err_exit;
+		}
+
+	transport_type=atoi((char*)argv[1]);
+	if(transport_type == NULL)
+		{
+    printf("\n\r set transport type failed \n\r");
+	error_no = 2;
+	goto err_exit;
+	}
+
+	
+	http_port = atoi((char*)argv[3]);
+	if(http_port == NULL)
+		{
+    printf("\n\r set http port failed \n\r");
+	error_no = 3;
+	goto err_exit;
+	}
+	port_ssl = argv[3];
+    http_host = gethostbyname(argv[2]);
+	
+		if(http_host == NULL) {
+	 printf("\n\r set http host failed \n\r");
+	error_no = 4;
+	goto err_exit;
+    	}
+	
+	host=argv[2];
+	
+    http_type = atoi((char*)argv[4]);//GET:2/POST:3
+    
+    	if(http_type == NULL) {
+	 printf("\n\r set http type failed \n\r");
+	error_no = 5;
+	goto err_exit;
+    	}
+   
+
+	http_resourse=argv[5];
+		if(http_resourse == NULL) {
+	 printf("\n\r set http resourse failed \n\r");
+	error_no = 6;
+	goto err_exit;
+    	}	
+
+    http_content = argv[7];
+		if((http_type == 3) && (http_content == NULL))
+			{
+			printf("\n\r set post content  failed \n\r");
+			   error_no = 7;
+			   goto err_exit;
+
+
+		}
+
+	
+	 post_data=argv[8]; 
+		
+	 if((http_type == 3) && (post_data == NULL))
+				 {
+				 printf("\n\r set post data failed \n\r");
+					error_no = 8;
+					goto err_exit;
+	 
+	 
+			 }
+
+    ssl_verify = atoi((char*)argv[6]);
+
+	 if((transport_type == 2) && ( ssl_verify  == NULL))
+				 {
+				 printf("\n\r set https client verufy failed \n\r");
+					error_no = 9;
+					goto err_exit;
+	 
+	 
+			 }
+
+if (transport_type == 1)
+{
+
+ if(xTaskCreate(http_client_thread_ver2, "http_client_thread_ver2", 2048, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
+   {	
+		AT_DBG_MSG(AT_FLAG_WIFI, AT_DBG_ERROR,"[ATPb] ERROR: Create http client task failed.");
+		error_no = 10;
+		goto err_exit;
+	}
+}
+
+else  if (transport_type == 2)
+{
+      if(xTaskCreate(https_client_thread_ver2, "https_client_thread_ver2", 2048, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
+   {	
+		AT_DBG_MSG(AT_FLAG_WIFI, AT_DBG_ERROR,"[ATPb] ERROR: Create https client task failed.");
+		error_no = 11;
+		goto err_exit;
+	}
+     
+}
+    err_exit:
+		
+		at_printf("%sERROR:%d\r\n", "+HTTPCLIENT:", error_no);
+		ATCMD_NEWLINE_HASHTAG();
+		return;
+	exit:
+	    at_printf("%sOK\r\n", "+HTTPCLIENT:");
+		ATCMD_NEWLINE_HASHTAG();
+		return;
+ }
+
+/* read/set CA cert/pk_key  */
+
+
+void fATPB(void *arg)
+{
+ int argc;
+ char *argv[MAX_ARGC] = {0};
+ int error_no = 0;
+  int  cert_type;
+  int ret;
+  int cert_len;
+  unsigned char *output_buf;
+  argc = parse_param(arg, argv);
+ 
+	if(!arg){
+		AT_DBG_MSG(AT_FLAG_WIFI, AT_DBG_ERROR,
+			"[+SSLCRET] Usage : AT+SSLCRET=<TYPE:client CA:1/privkey:2/server root CA :3/pubkey:4>,[<LENGTH>,<CRT>]\n\r"\
+            "           eg: AT+SSLCRET=1\n\r"\
+            "             : AT+SSLCRET=1,10,1234567890\n\r"
+		);
+		error_no = 1;
+		goto err_exit;
+		}
+
+	cert_type=atoi((char*)argv[1]);
+	if(cert_type == NULL)
+		{
+    printf("\n\r set cert type failed \n\r");
+	error_no = 2;
+	goto err_exit;
+	}
+
+		
+/*  -----get certificate&key-------*/
+     
+    if( argc == 2 ){
+
+	 if(cert_type == 1){
+
+        output_buf = malloc(strlen(test_client_crt));
+		 memset(output_buf,0,strlen(test_client_crt));
+		
+	    strncpy((char *)output_buf, test_client_crt, strlen(test_client_crt));
+		output_buf[strlen(test_client_crt)] = '\0';
+	    
+		   
+	    printf("\n\r read client CA pem is %s\n\r", output_buf);
+
+		free(output_buf);
+		
+	    goto err_exit;
+		 
+		 }
+        
+		else  if(cert_type == 2){
+			
+		output_buf = malloc(strlen(test_client_key));
+		memset(output_buf,0,strlen(test_client_key));
+
+	    strncpy((char *)output_buf, test_client_key, strlen(test_client_key));
+		output_buf[strlen(test_client_key)] = '\0';
+		
+        printf("\n\r read privkey is %s\n\r ", output_buf);
+		
+		free(output_buf);
+		goto err_exit;
+	
+		 	}
+
+
+		 else if(cert_type == 4){
+		 
+
+		 if ((ret = mbedtls_x509_crt_parse(&client_x509, (const unsigned char *) test_client_crt, strlen((char const *)test_client_crt) + 1)) != 0) {
+					  
+					 printf(" failed\n	! mbedtls_x509_crt_parse returned %d \n\n", ret);
+					 error_no = 3;
+					goto err_exit;
+				 }
+			 
+				 if ((ret = mbedtls_x509_crt_parse(&client_x509, (const unsigned char *) test_ca_crt, strlen((char const *)test_ca_crt) + 1)) != 0) {
+					  
+					 printf(" failed\n	! mbedtls_x509_crt_parse returned %d \n\n", ret );
+					 error_no = 4;
+					goto err_exit;
+				 }
+
+
+	     mbedtls_pk_init(&client_pub_key);
+		 memcpy(&client_pub_key, &client_x509.pk, sizeof(mbedtls_pk_context));
+		 
+
+		 output_buf = malloc(1024);
+		 memset(output_buf,0,1024);
+		 if( ( ret = mbedtls_pk_write_pubkey_pem( &client_pub_key, output_buf,1024) ) != 0 )
+		 	{
+            printf("parse public key  err");
+			goto err_exit;
+		 
+		 	}
+
+            printf("read pubkey is %s\n", output_buf);
+			free(output_buf);
+			
+		 goto err_exit;
+	
+	        }
+
+		 else if(cert_type == 3){
+
+
+		 output_buf = malloc(strlen(test_ca_crt));
+		 memset(output_buf,0,strlen(test_ca_crt));
+		
+	    strncpy((char *)output_buf, test_ca_crt, strlen(test_ca_crt));
+		output_buf[strlen(test_ca_crt)] = '\0';
+	   
+		printf("\n\r read server root  CA  is %s\n\r", output_buf);
+
+		free(output_buf);
+		
+	    goto err_exit;
+
+
+		 }
+
+		 else
+		 	{
+
+			 printf("\n\r cert type set invalid \n\r");
+           goto err_exit;
+		 }
+
+		  }
+
+
+	else if( argc == 4 ){
+
+
+
+	cert_len=atoi((char*)argv[2]);
+	
+	printf("/n/rcert_len is %d/n/r",cert_len);
+
+	output_buf = malloc(cert_len);
+	
+	memset(output_buf,0,cert_len);
+	
+	output_buf =  argv[3];
+
+
+	 if(cert_type == 1){
+
+	     printf("\n\r ----start write client CA pem----\n\r  ");
+         strncpy(test_client_crt ,output_buf,strlen(output_buf)); 
+		test_client_crt[strlen(output_buf)] ='\0';
+		
+		 
+
+        printf("\n\r set client CA pem is \n\r%s\n\r", test_client_crt);
+
+		free(output_buf);
+		
+	    goto err_exit;
+		 
+		 }
+
+
+	 else if(cert_type == 2){
+	 
+			  printf("\n\r ----start write client privekey---\n\r  ");
+			  strncpy(test_client_key ,output_buf,strlen(output_buf)); 
+			  test_client_key[strlen(output_buf)] ='\0';
+	 
+			 printf("\n\r set client peiveley is \n\r%s\n\r", test_client_key);
+	 
+			 free(output_buf);
+			 
+			 goto err_exit;
+			  
+			  }
+
+
+	else  if(cert_type == 3){
+		 
+				  printf("\n\r ----start write server root CA---\n\r  ");
+				  strncpy(test_ca_crt ,output_buf,strlen(output_buf)); 
+				  test_ca_crt[strlen(output_buf)] ='\0';
+		 
+				 printf("\n\r set server  root CA is \n\r%s\n\r", test_ca_crt);
+		 
+				 free(output_buf);
+				 
+				 goto err_exit;
+				  
+				  }
+
+else 
+
+{
+           printf("\n\r cert type set invalid \n\r");
+		   free(output_buf);
+           goto err_exit;}
+
+	}
+
+else {
+
+    printf("[ATPB] Usage : ATPB=<TYPE 1: client CA ??/privkey:2/server root CA :3/pubkey:4>,[<LENGTH>,<CRT>]");
+
+}
+    at_printf("%sOK\r\n", "+SSLCRET:");
+	ATCMD_NEWLINE_HASHTAG();
+
+err_exit:				
+	at_printf("%sERROR:%d\r\n", "+SSLCRET:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
+    return;
+}
+
+void fATWR(void *arg){
+	/* To avoid gcc warnings */
+	( void ) arg;
+	
+	int rssi = 0;
+	printf("[ATWR]: _AT_WLAN_GET_RSSI_\n\r"); 
+	wifi_get_rssi(&rssi);
+	at_printf("RSSI = %d\r\n", rssi);
+	at_printf("%sOK\r\n", "+WLRSSI:");
+	ATCMD_NEWLINE_HASHTAG();
 }
 
 void print_wlan_help(void *arg){
@@ -3578,19 +4554,27 @@ log_item_t at_wifi_items[ ] = {
 #endif
 #elif ATCMD_VER == ATVER_2 // uart at command
 #if CONFIG_WLAN
-	{"ATPA", fATPA,}, // set AP
-	{"ATPN", fATPN,}, // connect to Network
-	{"ATPH", fATPH,}, // set DHCP mode
-	{"ATPE", fATPE,}, // set static IP for STA
-	{"ATPF", fATPF,}, // set DHCP rule for AP
-	{"ATPG", fATPG,}, // set auto connect
-	{"ATPM", fATPM,}, // set MAC address
-	{"ATPW", fATPW,}, // set Wifi mode
-	{"ATWD", fATWD,},
-	{"ATWS", fATWS,},
-	{"ATW?", fATWx,},
+	{"+WLSOFTAP", fATPA,}, // set AP
+	{"+WLCONN", fATPN,}, // connect to Network
+#if ENABLE_SET_AP_MODE
+	{"+WLDMOD", fATPH,}, // set DHCP mode
+	{"+WLDRULE", fATPF,}, // set DHCP rule for AP
+#endif
+	{"+WLSTATICIP", fATPE,}, // set static IP for STA
+	{"+WLAUTOCONN", fATPG,}, // set auto connect
+	{"+WLRECONN", fATRC,}, // set auto reconnect
+	{"+WLMAC", fATPM,}, // set MAC address
+#if ENABLE_SET_AP_MODE
+	{"+WLMODE", fATPW,}, // set Wifi mode
+#endif
+	{"+WLDISCONN", fATWD,},
+	{"+WLSCAN", fATWS,},
+	{"+WLSTATE", fATWx,},
+	{"+SSLCRET", fATPB,},  // read/write ca cert
+	{"+HTTPCLIENT", fATPb,},  // set http client
+	{"+WLRSSI", fATWR,},//Read RSSI
 #if (CONFIG_INCLUDE_SIMPLE_CONFIG)
-	{"ATWQ", fATWQ,},
+	{"+WLSMPLCFG", fATWQ,},
 #endif // #if (CONFIG_INCLUDE_SIMPLE_CONFIG)
 #endif // #if CONFIG_WLAN
 #endif // end of #if ATCMD_VER == ATVER_1
@@ -3603,7 +4587,9 @@ void print_wifi_at(void *arg){
 
 	cmd_len = sizeof(at_wifi_items)/sizeof(at_wifi_items[0]);
 	for(index = 0; index < cmd_len; index++)
-		at_printf("\r\n%s", at_wifi_items[index].log_cmd);
+	{
+		at_printf("AT%s\r\n", at_wifi_items[index].log_cmd);
+	}
 }
 #endif
 

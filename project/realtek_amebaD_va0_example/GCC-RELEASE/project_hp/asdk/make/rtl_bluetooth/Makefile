@@ -59,6 +59,14 @@ ifeq ($(CONFIG_BT_TAG_SCANNER),y)
 	make -C bt_tag_scanner all
 endif
 
+ifeq ($(CONFIG_BT_OTA_CLIENT),y)
+	make -C bt_ota_client all
+endif
+
+ifeq ($(CONFIG_BT_OTA_SERVER),y)
+	make -C bt_ota_server all
+endif
+
 ifeq ($(CONFIG_BT_MESH_PROVISIONER),y)
 	make -C mesh_provisioner all
 ifeq ($(CONFIG_BT_MESH_PROVISIONER_RTK_DEMO),y)
@@ -85,6 +93,10 @@ ifeq ($(CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE),y)
 ifeq ($(CONFIG_BT_MESH_DEVICE_RTK_DEMO),y)
 	make -C bt_mesh_device_rtk_demo all
 endif
+endif
+
+ifeq ($(CONFIG_BLE_MATTER_ADAPTER),y)
+	make -C ble_matter_adapter all
 endif
 
 endif
@@ -141,6 +153,14 @@ ifeq ($(CONFIG_BT_TAG_SCANNER),y)
 	make -C bt_tag_scanner clean
 endif
 
+ifeq ($(CONFIG_BT_OTA_CLIENT),y)
+	make -C bt_ota_client clean
+endif
+
+ifeq ($(CONFIG_BT_OTA_SERVER),y)
+	make -C bt_ota_server clean
+endif
+
 ifeq ($(CONFIG_BT_MESH_PROVISIONER),y)
 	make -C mesh_provisioner clean
 ifeq ($(CONFIG_BT_MESH_PROVISIONER_RTK_DEMO),y)
@@ -167,6 +187,10 @@ ifeq ($(CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE),y)
 ifeq ($(CONFIG_BT_MESH_DEVICE_RTK_DEMO),y)
 	make -C bt_mesh_device_rtk_demo clean
 endif
+endif
+
+ifeq ($(CONFIG_BLE_MATTER_ADAPTER),y)
+	make -C ble_matter_adapter clean
 endif
 
 endif
