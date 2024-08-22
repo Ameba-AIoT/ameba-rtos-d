@@ -52,7 +52,7 @@ static int getNextPacketId(MQTTClient *c) {
 }
 
 
-static int sendPacket(MQTTClient* c, int length, Timer* timer)
+int sendPacket(MQTTClient* c, int length, Timer* timer)
 {
     int rc = FAILURE, 
         sent = 0;
@@ -134,7 +134,7 @@ exit:
 }
 
 
-static int readPacket(MQTTClient* c, Timer* timer)
+int readPacket(MQTTClient* c, Timer* timer)
 {
     int rc = FAILURE;
     MQTTHeader header = {0};
@@ -217,7 +217,11 @@ int deliverMessage(MQTTClient* c, MQTTString* topicName, MQTTMessage* message)
             {
                 MessageData md;
                 NewMessageData(&md, topicName, message);
+#if MQTT_NEW_MSG_CB
+                c->messageHandlers[i].fp(&md, c->cb);
+#else
                 c->messageHandlers[i].fp(&md);
+#endif
                 rc = SUCCESS;
             }
         }
@@ -227,7 +231,11 @@ int deliverMessage(MQTTClient* c, MQTTString* topicName, MQTTMessage* message)
     {
         MessageData md;
         NewMessageData(&md, topicName, message);
+#if MQTT_NEW_MSG_CB
+        c->defaultMessageHandler(&md, c->cb);
+#else
         c->defaultMessageHandler(&md);
+#endif
         rc = SUCCESS;
     }   
     

@@ -99,10 +99,17 @@ static char g_client_pkey[] =
 #include "wifi_conf.h"
 
 #define MQTT_SELECT_TIMEOUT 1
+#if MQTT_NEW_MSG_CB
+static void messageArrived(MessageData* data, void *param)
+{
+	mqtt_printf(MQTT_INFO, "Message arrived on topic %s: %s\n", data->topicName->lenstring.data, (char *)data->message->payload);
+}
+#else
 static void messageArrived(MessageData* data)
 {
 	mqtt_printf(MQTT_INFO, "Message arrived on topic %s: %s\n", data->topicName->lenstring.data, (char *)data->message->payload);
 }
+#endif
 
 //This example is original and cannot restart if failed. To use this example, define WAIT_FOR_ACK and not define MQTT_TASK in MQTTClient.h
 void prvMQTTEchoTask(void *pvParameters)

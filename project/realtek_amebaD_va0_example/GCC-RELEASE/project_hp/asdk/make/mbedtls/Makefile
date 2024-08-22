@@ -27,6 +27,8 @@ ifeq ($(MBEDTLS_V_2_4_0_ENABLE), y)
 	make -C mbedtls-2.4.0 all
 else ifeq ($(MBEDTLS_V_3_4_0_ENABLE), y)
 	make -C mbedtls-3.4.0 all
+else ifeq ($(MBEDTLS_V_3_6_0_ENABLE), y)
+	make -C mbedtls-3.6.0 all
 endif
 #*****************************************************************************#
 #              GENERATE OBJECT FILE 
@@ -37,6 +39,11 @@ CORE_TARGETS: $(OBJS)
 #              CLEAN GENERATED FILES                                          #
 #*****************************************************************************#
 clean: CLEAN_OBJS 
+ifeq ($(MBEDTLS_V_2_4_0_ENABLE), y)
 	make -C mbedtls-2.4.0 clean
-
+else ifeq ($(MBEDTLS_V_3_4_0_ENABLE), y)
+	make -C mbedtls-3.4.0 clean
+else ifeq ($(MBEDTLS_V_3_6_0_ENABLE), y)
+	make -C mbedtls-3.6.0 clean
+endif
 -include $(DEPS)

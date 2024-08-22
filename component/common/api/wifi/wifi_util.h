@@ -97,6 +97,9 @@ void wext_wifi_connect_monitor_mgnt(int enable);
 void wext_set_indicate_mgnt(int enable);
 int wext_get_bcn_rssi(const char *ifname, int *rssi);
 int wext_set_bcn_period(__u16 period);
+#if defined(CONFIG_RTW_WNM) && defined(CONFIG_LAYER2_ROAMING)
+void wext_set_roam_on_btm(__u8 enable);
+#endif
 #if defined(CONFIG_IEEE80211K)
 void wext_set_enable_80211k(__u8 enable);
 #endif
@@ -133,6 +136,8 @@ int wext_wlan_redl_fw(const char *ifname);
 #ifdef CONFIG_80211N_HT
 void wext_set_wifi_ampdu_tx(__u8 enable);
 #endif
+
+void wext_get_country_code(unsigned char* country_code_get);
 
 extern int (*p_wlan_mgmt_filter)(__u8 *ie, __u16 ie_len, __u16 frame_type);
 extern int (*p_wlan_action_filter)(__u8 *ie, __u16 ie_len, __u16 frame_type);

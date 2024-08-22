@@ -21,6 +21,8 @@ extern  "C" {
 
 #define MAX_KEY_LENGTH 128
 
+typedef int (*kv_reg_ptr)(unsigned char *input, unsigned char *output, unsigned int len);
+
 /*============================================================================*
   *                                Functions
   *============================================================================*/

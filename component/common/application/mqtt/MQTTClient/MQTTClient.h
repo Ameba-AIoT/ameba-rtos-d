@@ -33,6 +33,7 @@
   #define DLLExport
 #endif
 
+#include "main.h"
 #include "../MQTTPacket/MQTTPacket.h"
 #include "stdio.h"
 #include "MQTTFreertos.h"
@@ -44,6 +45,15 @@
 
 #define MQTT_SENDBUF_LEN  1024
 #define MQTT_READBUF_LEN  1024
+
+#if ATCMD_VER == ATVER_2
+/* Enable different message callback. */
+#define MQTT_NEW_MSG_CB     1
+#else
+#define MQTT_NEW_MSG_CB     0
+#endif
+
+#define MQTT_SENDBUF_ENABLE 0
 
 enum mqtt_status{
 	MQTT_START       = 0,
@@ -105,7 +115,11 @@ typedef struct MessageData
     MQTTString* topicName;
 } MessageData;
 
+#if MQTT_NEW_MSG_CB
+typedef void (*messageHandler)(MessageData*, void*);
+#else
 typedef void (*messageHandler)(MessageData*);
+#endif
 
 typedef struct MQTTClient
 {
@@ -122,10 +136,19 @@ typedef struct MQTTClient
     struct MessageHandlers
     {
         const char* topicFilter;
+#if MQTT_NEW_MSG_CB
+        void (*fp) (MessageData*, void *);
+#else
         void (*fp) (MessageData*);
+#endif
     } messageHandlers[MAX_MESSAGE_HANDLERS];      /* Message handlers are indexed by subscription topic */
 
+#if MQTT_NEW_MSG_CB
+    void (*defaultMessageHandler) (MessageData*, void *);
+    void *cb;
+#else
     void (*defaultMessageHandler) (MessageData*);
+#endif
 
     Network* ipstack;
     Timer ping_timer;
@@ -136,6 +159,10 @@ typedef struct MQTTClient
 
 #define DefaultClient {0, 0, 0, 0, NULL, NULL, 0, 0, 0}
 
+extern int readPacket(MQTTClient* c, Timer* timer);
+extern int sendPacket(MQTTClient* c, int length, Timer* timer);
+extern int keepalive(MQTTClient* c);
+extern int deliverMessage(MQTTClient* c, MQTTString* topicName, MQTTMessage* message);
 
 /**
  * Create an MQTT client object

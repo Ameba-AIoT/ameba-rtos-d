@@ -192,10 +192,10 @@ struct iperf_data_t* init_stream_data(uint8_t protocol, uint8_t role)
 	stream_data->protocol = protocol;
 	stream_data->port = DEFAULT_PORT;
 	stream_data->report_interval = DEFAULT_REPORT_INTERVAL;
-	stream_data->time = DEFAULT_TIME;
 
 	if (role == 'c') {
 		stream_data->buf_size = CLIENT_BUF_SIZE;
+		stream_data->time = DEFAULT_TIME;
 	} else if (role == 's') {
 		stream_data->buf_size = SERVER_BUF_SIZE;
 	}
@@ -845,6 +845,7 @@ int udp_server_func(struct iperf_data_t iperf_data)
 	int socket_connect = 0;
 	fd_set read_fds;
 	struct timeval select_timeout;
+	int frame_num = 0;
 
 	udp_server_buffer = pvPortMalloc(iperf_data.buf_size);
 	if (!udp_server_buffer) {
@@ -898,6 +899,26 @@ int udp_server_func(struct iperf_data_t iperf_data)
 	start_time = xTaskGetTickCount();
 	report_start_time = start_time;
 	end_time = start_time;
+
+#if WIFI_LOGO_CERTIFICATION_CONFIG
+	int recv_timeout = 1000;
+#if defined(LWIP_SO_SNDRCVTIMEO_NONSTANDARD) && (LWIP_SO_SNDRCVTIMEO_NONSTANDARD == 0)	//lwip 2.0.2
+	struct timeval timeout;
+	timeout.tv_sec = recv_timeout / 1000;
+	timeout.tv_usec = (recv_timeout % 1000) * 1000;
+	setsockopt(iperf_data.server_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+#else	//lwip 1.4.1
+	setsockopt(iperf_data.server_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
+#endif
+
+	if (iperf_data.total_size) {
+		client_hdr.mAmount = iperf_data.total_size;
+		size_boundary = 1;
+	} else if (iperf_data.time) {
+		client_hdr.mAmount = iperf_data.time;
+		time_boundary = 1;
+	}
+#else
 	if (!iperf_data.bidirection) { //Server
 		//parser the amount of udp iperf setting
 		memcpy(&client_hdr, udp_server_buffer, sizeof(client_hdr));
@@ -960,6 +981,7 @@ int udp_server_func(struct iperf_data_t iperf_data)
 			time_boundary = 1;
 		}
 	}
+#endif
 
 	if (time_boundary) {
 		while (((end_time - start_time) <= (configTICK_RATE_HZ * client_hdr.mAmount))  && (!g_stream_id[iperf_data.stream_id].terminate)) {
@@ -981,6 +1003,7 @@ int udp_server_func(struct iperf_data_t iperf_data)
 			end_time = xTaskGetTickCount();
 			total_size += recv_size;
 			report_size += recv_size;
+			frame_num++;
 			if ((iperf_data.report_interval != DEFAULT_REPORT_INTERVAL) && ((end_time - report_start_time) >= (configTICK_RATE_HZ * iperf_data.report_interval))) {
 				tptest_res_log("udp_s: id[%d] Receive %d KBytes in %d ms, %d Kbits/sec\n\r", iperf_data.stream_id, (int)(report_size / KB), (int)(end_time - report_start_time),
 							   (int)((report_size * 8) / (end_time - report_start_time)));
@@ -1008,6 +1031,7 @@ int udp_server_func(struct iperf_data_t iperf_data)
 			end_time = xTaskGetTickCount();
 			total_size += recv_size;
 			report_size += recv_size;
+			frame_num++;
 			if ((iperf_data.report_interval != DEFAULT_REPORT_INTERVAL) && ((end_time - report_start_time) >= (configTICK_RATE_HZ * iperf_data.report_interval))) {
 				tptest_res_log("udp_s: id[%d] Receive %d KBytes in %d ms, %d Kbits/sec\n\r", iperf_data.stream_id, (int)(report_size / KB), (int)(end_time - report_start_time),
 							   (int)((report_size * 8) / (end_time - report_start_time)));
@@ -1022,6 +1046,11 @@ int udp_server_func(struct iperf_data_t iperf_data)
 				tptest_res_log("%s: Receive data timeout\n\r", __func__);
 				goto exit1;
 			}
+#if WIFI_LOGO_CERTIFICATION_CONFIG
+			else if ((recv_size > 0) && (iperf_data.bidirection)) {
+				sendto(iperf_data.server_fd, udp_server_buffer, recv_size, 0, (struct sockaddr *) &client_addr, (u32_t)addrlen);
+			}
+#endif
 
 			// ack data to client
 			// Not send ack to prevent send fail due to limited skb, but it will have warning at iperf client
@@ -1035,6 +1064,7 @@ int udp_server_func(struct iperf_data_t iperf_data)
 			end_time = xTaskGetTickCount();
 			total_size += recv_size;
 			report_size += recv_size;
+			frame_num++;
 			if ((iperf_data.report_interval != DEFAULT_REPORT_INTERVAL) && ((end_time - report_start_time) >= (configTICK_RATE_HZ * iperf_data.report_interval))) {
 				tptest_res_log("udp_s: id[%d] Receive %d KBytes in %d ms, %d Kbits/sec\n\r", iperf_data.stream_id, (int)(report_size / KB), (int)(end_time - report_start_time),
 							   (int)((report_size * 8) / (end_time - report_start_time)));
@@ -1045,9 +1075,8 @@ int udp_server_func(struct iperf_data_t iperf_data)
 	}
 exit1:
 	if (total_size != 0) {
-		tptest_res_log("udp_s: [END] id[%d] Totally receive %d KBytes in %d ms, %d Kbits/sec\n\r", iperf_data.stream_id, (int)(total_size / KB),
-					   (int)(end_time - start_time),
-					   (int)((uint64_t)(total_size * 8) / (end_time - start_time)));
+		tptest_res_log("udp_s: [END] id[%d] Totally receive %d KBytes in %d ms, frame_num = %d, %d Kbits/sec\n\r", iperf_data.stream_id, (int)(total_size / KB),
+					   (int)(end_time - start_time), frame_num, (int)((uint64_t)(total_size * 8) / (end_time - start_time)));
 	}
 
 
@@ -1209,7 +1238,11 @@ void cmd_iperf(int argc, char **argv)
 					goto exit;
 				}
 				argv_count += 2;
+#if WIFI_LOGO_CERTIFICATION_CONFIG
+			} else if (strcmp(argv[argv_count - 1], "-d") == 0) {
+#else
 			} else if ((strcmp(argv[argv_count - 1], "-d") == 0) && (stream_data->role == 'c')) {
+#endif
 				stream_data->bidirection = 1;
 				argv_count += 1;
 			} else if (strcmp(argv[argv_count - 1], "-i") == 0) {
@@ -1279,10 +1312,12 @@ void cmd_iperf(int argc, char **argv)
 				tptest_res_log("[ERROR] init_stream_data failed!\n\r");
 				goto exit;
 			}
+#if WIFI_LOGO_CERTIFICATION_CONFIG == 0
 			stream_data_s->bidirection = 1;
 			stream_data_s->port = stream_data->port;
 			stream_data_s->time = stream_data->time;
 			stream_data_s->total_size = stream_data->total_size;
+#endif
 			if (xTaskCreate(iperf_test_handler, "iperf_test_handler", BSD_STACK_SIZE, (void*) stream_data_s, tskIDLE_PRIORITY + 2 + PRIORITIE_OFFSET, &stream_data_s->task) != pdPASS) {
 				tptest_res_log("UDP ERROR: Create UDP server task failed.\n\r");
 				goto exit;

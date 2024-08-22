@@ -1865,6 +1865,14 @@ int wext_wlan_redl_fw(const char *ifname){
 }
 #endif
 
+#if defined(CONFIG_RTW_WNM) && defined(CONFIG_LAYER2_ROAMING)
+extern u8 set_roam_on_btm;
+void wext_set_roam_on_btm(__u8 enable)
+{
+	set_roam_on_btm = enable;
+}
+#endif
+
 #ifdef CONFIG_IEEE80211K
 extern u8 rtw_enable_80211k;
 void wext_set_enable_80211k(__u8 enable)
@@ -1892,3 +1900,8 @@ void wext_set_wifi_ampdu_tx(__u8 enable){
 	g_tx_ampdu_enable = enable;
 }
 #endif
+
+extern void rtw_get_bcn_country_code(unsigned char* country_code_get);
+void wext_get_country_code(unsigned char* country_code_get){
+	rtw_get_bcn_country_code(country_code_get);
+}

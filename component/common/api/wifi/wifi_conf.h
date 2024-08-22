@@ -1288,11 +1288,54 @@ int wifi_set_tx_power_percentage(unsigned long power_percentage_idx);
 */
 int wifi_set_softap_gkey_interval(uint32_t interval);
 
+/**
+* @brief  Set slient softap. No beacon will be sent untill client assoc success
+*         Support AP mode and CONCURRENT mode
+*         When no client connect need to restart softap to resume no beacon
+ * @param[in]  enable: 1, enable slient; 0, disable slient.
+ * @return 0: success.
+*/
+int wifi_set_slient_softap(rtw_bool_t enable);
 #ifdef __cplusplus
   }
 #endif
 
-/*\@}*/
+typedef struct {
+    char country_code[2];
+    int count;
+} CountryCodeCount;
+
+/**
+* @brief  Call "wifi_scan_networks_with_extended_countryinfo" and memcpy the country code.
+* @param[in] country_code_get: char that saved the country code which follows the logic of WiFi NIC.
+* @return 
+*/
+void wifi_get_country_code(unsigned char* country_code_get);
+
+/**
+* @brief  Full scan on the APs in the environment to read the country code from the beacon and saved.
+*         This API will cause a 4 seconds waiting time to finish the full scan.
+* @param
+* @return 
+*/
+void wifi_scan_networks_with_extended_countryinfo(void);
+
+/**
+* @brief  Save the frequency of different country code from the environment.
+* @param[in] CountryCodeCount *country_code_counts: struct that saves the country code and its corresponding frequency
+* @param[in] int *num_codes: number of different country codes from the environment.
+* @param[in] char *code: current country code from the AP.
+* @return 
+*/
+void wifi_add_country_code(CountryCodeCount *country_code_counts, int *num_codes, char *code);
+
+/**
+* @brief  Copy the country code that been processed based on the logic of WiFi NIC.
+* @param[in] CountryCodeCount *country_code_counts: struct that saves the country code and its corresponding frequency
+* @param[in] int *num_codes: number of different country codes from the environment.
+* @return 
+*/
+void wifi_return_country_code(CountryCodeCount *country_code_counts, int *num_codes);
 
 #endif // __WIFI_API_H
 

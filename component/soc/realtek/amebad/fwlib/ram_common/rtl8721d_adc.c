@@ -25,7 +25,7 @@
 
 ADC_CalParaTypeDef CalParaNorm;
 ADC_CalParaTypeDef CalParaVBat;
-bool vref_init_done = _FALSE;
+u8 vref_init_done = _FALSE;
 
 /**
   * @brief	 Initializes the parameters in the ADC_InitStruct with default values.
@@ -657,7 +657,7 @@ u32 ADC_RXGDMA_Init(
   *  @arg _FALSE: Calibration parameter belongs to normal channel.
   * @retval None.
   */
-void ADC_InitCalPara(ADC_CalParaTypeDef *CalPara, bool IsVBatChan)
+void ADC_InitCalPara(ADC_CalParaTypeDef *CalPara, u8 IsVBatChan)
 {
 	u8 cal_order;
 	u8 index;

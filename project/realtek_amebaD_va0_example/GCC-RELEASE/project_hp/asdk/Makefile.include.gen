@@ -39,6 +39,8 @@ ifeq ($(MBEDTLS_V_2_4_0_ENABLE), y)
 MBEDTLSDIR	 = $(BASEDIR)/component/common/network/ssl/mbedtls-2.4.0
 else ifeq ($(MBEDTLS_V_3_4_0_ENABLE), y)
 MBEDTLSDIR	 = $(BASEDIR)/component/common/network/ssl/mbedtls-3.4.0
+else ifeq ($(MBEDTLS_V_3_6_0_ENABLE), y)
+MBEDTLSDIR	 = $(BASEDIR)/component/common/network/ssl/mbedtls-3.6.0
 endif
 #ROM code folder
 CMSISMATHLIBDIR  = $(BASEDIR)/component/soc/realtek/8711b/fwlib/test/ft_test/cmsis_math
@@ -231,6 +233,9 @@ IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls-2.4.0/
 else ifeq ($(MBEDTLS_V_3_4_0_ENABLE), y)
 IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls-3.4.0/include
 IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls-3.4.0/library
+else ifeq ($(MBEDTLS_V_3_6_0_ENABLE), y)
+IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls-3.6.0/include
+IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls-3.6.0/library
 endif
 IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls_ram_map/rom
 IFLAGS               += -I$(BASEDIR)/component/common/application/amazon/amazon-freertos/lib/include/private

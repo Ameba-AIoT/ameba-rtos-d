@@ -312,10 +312,10 @@ static void server_start(void *param)
 			#if CONFIG_LOG_SERVICE_LOCK
 			log_service_lock();
 			#endif
-			at_printf("\r\n[ATPS] OK"
-			"\r\n[ATPS] con_id=%d",
+			at_printf("%sOK\r\n"
+			"con_id=%d\r\n", "+SKTSERVER:",
 			ServerNodeUsed->con_id);
-			at_printf(STR_END_OF_ATCMD_RET);
+			ATCMD_NEWLINE_HASHTAG();
 			#if CONFIG_LOG_SERVICE_LOCK
 			log_service_unlock();
 			#endif
@@ -397,13 +397,14 @@ static void server_start(void *param)
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_lock();
 				#endif
-				at_printf("\r\n[ATPS] A client connected to server[%d]\r\n"
+				at_printf("%sA client connected to server[%d]\r\n"
 					"con_id:%d,"
 					"seed,"
 					"ssl,"
 					"address:%s,"
 					"port:%d,"
-					"socket:%d", 
+					"socket:%d\r\n",
+					"+SKTSERVER:",
 					ServerNodeUsed->con_id,
 					seednode->con_id,
 					inet_ntoa(s_cli_addr.sin_addr),
@@ -442,10 +443,11 @@ static void server_start(void *param)
 					#if CONFIG_LOG_SERVICE_LOCK
 					log_service_lock();
 					#endif
-					at_printf("\r\n[ATPS] OK"
-					"\r\n[ATPS] con_id=%d",
+					at_printf("%sOK\r\n"
+					"con_id=%d\r\n",
+					"+SKTSERVER:",
 					ServerNodeUsed->con_id);
-					at_printf(STR_END_OF_ATCMD_RET);
+					ATCMD_NEWLINE_HASHTAG();
 					#if CONFIG_LOG_SERVICE_LOCK
 					log_service_unlock();
 					#endif
@@ -499,13 +501,14 @@ static void server_start(void *param)
 							#if CONFIG_LOG_SERVICE_LOCK
 							log_service_lock();
 							#endif
-							at_printf("\r\n[ATPS] A client connected to server[%d]\r\n"
+							at_printf("%sA client connected to server[%d]\r\n"
 								"con_id:%d,"
 								"seed,"
 								"tcp,"
 								"address:%s,"
 								"port:%d,"
-								"socket:%d", 
+								"socket:%d\r\n",
+								"+SKTSERVER:",
 								ServerNodeUsed->con_id,
 								seednode->con_id,
 								inet_ntoa(s_cli_addr.sin_addr.s_addr),
@@ -556,10 +559,11 @@ static void server_start(void *param)
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_lock();
 				#endif
-				at_printf("\r\n[ATPS] OK"
-					"\r\n[ATPS] con_id=%d",
+				at_printf("%sOK\r\n"
+					"con_id=%d\r\n",
+					"+SKTSERVER:",
 					ServerNodeUsed->con_id);
-				at_printf(STR_END_OF_ATCMD_RET);
+				ATCMD_NEWLINE_HASHTAG();
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_unlock();
 				#endif
@@ -588,8 +592,13 @@ err_exit:
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_lock();
 	#endif
+#if ATCMD_VER == ATVER_2
+	at_printf("%sERROR:%d\r\n", "+SKTSERVER:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[ATPS] ERROR:%d", error_no);
 	at_printf(STR_END_OF_ATCMD_RET);
+#endif
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_unlock();
 	#endif
@@ -732,8 +741,8 @@ static void client_start(void *param)
 		#if CONFIG_LOG_SERVICE_LOCK
 		log_service_lock();
 		#endif
-		at_printf("\r\n[ATPC] OK\r\n[ATPC] con_id=%d",ClientNodeUsed->con_id);
-		at_printf(STR_END_OF_ATCMD_RET);
+		at_printf("%sOK\r\ncon_id=%d\r\n", "+SKTCLIENT:",ClientNodeUsed->con_id);
+		ATCMD_NEWLINE_HASHTAG();
 		#if CONFIG_LOG_SERVICE_LOCK
 		log_service_unlock();
 		#endif		
@@ -759,8 +768,8 @@ static void client_start(void *param)
 					#if CONFIG_LOG_SERVICE_LOCK
 					log_service_lock();
 					#endif
-					at_printf("\r\n[ATPC] OK\r\n[ATPC] con_id=%d",ClientNodeUsed->con_id);
-					at_printf(STR_END_OF_ATCMD_RET);
+					at_printf("%sOK\r\ncon_id=%d\r\n", "+SKTCLIENT:",ClientNodeUsed->con_id);
+					ATCMD_NEWLINE_HASHTAG();
 					#if CONFIG_LOG_SERVICE_LOCK
 					log_service_unlock();
 					#endif
@@ -848,8 +857,8 @@ static void client_start(void *param)
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_lock();
 				#endif
-				at_printf("\r\n[ATPC] OK\r\n[ATPC] con_id=%d",ClientNodeUsed->con_id);
-				at_printf(STR_END_OF_ATCMD_RET);
+				at_printf("%sOK\r\ncon_id=%d\r\n", "+SKTCLIENT:",ClientNodeUsed->con_id);
+				ATCMD_NEWLINE_HASHTAG();
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_unlock();
 				#endif
@@ -875,8 +884,13 @@ err_exit:
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_lock();
 	#endif
+#if ATCMD_VER == ATVER_2
+	at_printf("%sERROR:%d\r\n", "+SKTCLIENT:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[ATPC] ERROR:%d", error_no);
 	at_printf(STR_END_OF_ATCMD_RET);
+#endif
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_unlock();
 	#endif
@@ -1216,10 +1230,10 @@ void fATP0(void *arg){
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATP0]: _AT_TRANSPORT_ERRNO");
 #ifdef ERRNO
-	at_printf("\r\n[ATP0] OK:%d", errno);
+	at_printf("[ATP0] OK:%d\r\n", errno);
 #else
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,"errno isn't enabled");
-	at_printf("\r\n[ATP0] ERROR");
+	at_printf("[ATP0] ERROR\r\n");
 #endif
 }
 
@@ -1331,7 +1345,7 @@ void fATPC(void *arg){
 err_exit:
 	if(clientnode)
 		delete_node(clientnode);
-	at_printf("\r\n[ATPC] ERROR:%d", error_no);
+	at_printf("[ATPC] ERROR:%d\r\n", error_no);
 exit:
 	return;
 }
@@ -1408,7 +1422,7 @@ void fATPS(void *arg){
 err_exit:
 	if(servernode)
 		delete_node(servernode);
-	at_printf("\r\n[ATPS] ERROR:%d", error_no);
+	at_printf("[ATPS] ERROR:%d\r\n", error_no);
 exit:
 	return;
 }
@@ -1459,9 +1473,9 @@ void fATPD(void *arg){
 exit:
 	s_node = NULL;
 	if(error_no)
-		at_printf("\r\n[ATPD] ERROR:%d", error_no);
+		at_printf("[ATPD] ERROR:%d\r\n", error_no);
 	else
-		at_printf("\r\n[ATPD] OK");
+		at_printf("[ATPD] OK\r\n");
 	return;
 }
 
@@ -1580,9 +1594,9 @@ void fATPT(void *arg){
 	error_no = atcmd_lwip_send_data(curnode, data, data_sz, cli_addr);
 exit:
 	if(error_no)
-		at_printf("\r\n[ATPT] ERROR:%d,%d", error_no, con_id);
+		at_printf("[ATPT] ERROR:%d,%d\r\n", error_no, con_id);
 	else
-		at_printf("\r\n[ATPT] OK,%d", con_id);
+		at_printf("[ATPT] OK,%d\r\n", con_id);
 	return;
 }
 
@@ -1699,19 +1713,19 @@ exit:
 		if(curnode->protocol == NODE_MODE_UDP && curnode->role == NODE_ROLE_SERVER){
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 					"\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, con_id, udp_clientaddr, udp_clientport, rx_buffer);
-			at_printf("\r\n[ATPR] OK,%d,%d,%s,%d:", recv_size, con_id, udp_clientaddr, udp_clientport);
+			at_printf("[ATPR] OK,%d,%d,%s,%d:\r\n", recv_size, con_id, udp_clientaddr, udp_clientport);
 		}
 		else{
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 					"\r\n[ATPR] OK,%d,%d:%s", recv_size, con_id, rx_buffer);
-			at_printf("\r\n[ATPR] OK,%d,%d:", recv_size, con_id);
+			at_printf("[ATPR] OK,%d,%d:\r\n", recv_size, con_id);
 		}
 		if(recv_size)
 			at_print_data(rx_buffer, recv_size);
 #endif // #if (EXTEND_ATPR_SIZE)
 	}
 	else
-		at_printf("\r\n[ATPR] ERROR:%d,%d", error_no, con_id);
+		at_printf("[ATPR] ERROR:%d,%d\r\n", error_no, con_id);
 	return;
 }
 
@@ -1753,9 +1767,9 @@ void fATPK(void *arg){
 
 exit:
 	if(error_no)
-		at_printf("\r\n[ATPK] ERROR:%d", error_no);
+		at_printf("[ATPK] ERROR:%d\r\n", error_no);
 	else
-		at_printf("\r\n[ATPK] OK");
+		at_printf("[ATPK] OK\r\n");
 	return;
 }
 
@@ -1800,9 +1814,9 @@ void fATPU(void *arg){
 
 exit:
 	if(error_no)
-		at_printf("\r\n[ATPU] ERROR:%d", error_no);
+		at_printf("[ATPU] ERROR:%d\r\n", error_no);
 	else
-		at_printf("\r\n[ATPU] OK");
+		at_printf("[ATPU] OK\r\n");
 	return;
 }
 
@@ -1844,9 +1858,9 @@ void fATPL(void *arg)
 
 exit:
 	if(error_no == 0)
-		at_printf("\r\n[ATPL] OK");
+		at_printf("[ATPL] OK\r\n");
 	else
-		at_printf("\r\n[ATPL] ERROR:%d",error_no);
+		at_printf("[ATPL] ERROR:%d\r\n",error_no);
 
 	return;
 }
@@ -1914,9 +1928,9 @@ void fATPP(void *arg){
 	
 exit:
 	if(error_no)
-		at_printf("\r\n[ATPP] ERROR:%d", error_no);
+		at_printf("[ATPP] ERROR:%d\r\n", error_no);
 	else
-		at_printf("\r\n[ATPP] OK");
+		at_printf("[ATPP] OK\r\n");
 	return;
 }
 
@@ -1932,7 +1946,7 @@ void fATPI(void *arg){
 		if(n->con_id == 0)
 			continue;
 
-		at_printf("\r\ncon_id:%d,", n->con_id);
+		at_printf("con_id:%d,", n->con_id);
 
 		if(n->role == NODE_ROLE_SERVER)
 			at_printf("server,");
@@ -1954,7 +1968,7 @@ void fATPI(void *arg){
 			node* seed = n;
 			do{
 				seed = seed->nextseed;
-				at_printf("\r\ncon_id:%d,seed,", seed->con_id);
+				at_printf("con_id:%d,seed,", seed->con_id);
 				if(seed->protocol == NODE_MODE_TCP)
 					at_printf("tcp,");
 #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
@@ -1964,13 +1978,15 @@ void fATPI(void *arg){
 				else
 					at_printf("udp,");
 				addr.s_addr = htonl(seed->addr);
-				at_printf("address:%s,port:%d,socket:%d", inet_ntoa(addr), seed->port, seed->sockfd);
+				at_printf("address:%s,port:%d,socket:%d\r\n", inet_ntoa(addr), seed->port, seed->sockfd);
 			}while (seed->nextseed != NULL);
+		} else {
+			at_printf("\r\n");
 		}
 		n = n->next;
 	}
 
-	at_printf("\r\n[ATPI] OK");
+	at_printf("[ATPI] OK\r\n");
 
 	return;
 }
@@ -2419,14 +2435,14 @@ static void atcmd_lwip_receive_task(void *param)
 					if(curnode->protocol == NODE_MODE_UDP && curnode->role == NODE_ROLE_SERVER){
 						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 								"\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, curnode->con_id, udp_clientaddr, udp_clientport, rx_buffer);
-						at_printf("\r\n[ATPR] OK,%d,%d,%s,%d:", recv_size, curnode->con_id, udp_clientaddr, udp_clientport);
+						at_printf("[ATPR] OK,%d,%d,%s,%d:\r\n", recv_size, curnode->con_id, udp_clientaddr, udp_clientport);
 					}
 					else{
 						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 								"\r\n[ATPR] OK,%d,%d:%s", 
 								recv_size, 
 								curnode->con_id, rx_buffer);
-						at_printf("\r\n[ATPR] OK,%d,%d:", recv_size, curnode->con_id);
+						at_printf("[ATPR] OK,%d,%d:\r\n", recv_size, curnode->con_id);
 					}
 					at_print_data(rx_buffer, recv_size);
 					at_printf(STR_END_OF_ATCMD_RET);
@@ -2439,7 +2455,7 @@ static void atcmd_lwip_receive_task(void *param)
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_lock();
 				#endif
-				at_printf("\r\n[ATPR] ERROR:%d,%d", error_no, curnode->con_id);				
+				at_printf("[ATPR] ERROR:%d,%d\r\n", error_no, curnode->con_id);				
 				at_printf(STR_END_OF_ATCMD_RET);
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_unlock();
@@ -2919,7 +2935,7 @@ void print_tcpip_at(void *arg){
 
 	cmd_len = sizeof(at_transport_items)/sizeof(at_transport_items[0]);
 	for(index = 0; index < cmd_len; index++)
-		at_printf("\r\n%s", at_transport_items[index].log_cmd);
+		at_printf("%s\r\n", at_transport_items[index].log_cmd);
 }
 #endif
 
@@ -3278,10 +3294,10 @@ static void server_start(void *param)
 			#if CONFIG_LOG_SERVICE_LOCK
 			log_service_lock();
 			#endif
-			at_printf("\r\n[ATPS] OK"
-			"\r\n[ATPS] con_id=%d",
+			at_printf("%sOK\r\n"
+			"con_id=%d\r\n", "+SKTSERVER:",
 			ServerNodeUsed->con_id);
-			at_printf(STR_END_OF_ATCMD_RET);
+			ATCMD_NEWLINE_HASHTAG();
 			#if CONFIG_LOG_SERVICE_LOCK
 			log_service_unlock();
 			#endif
@@ -3381,20 +3397,21 @@ static void server_start(void *param)
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_lock();
 				#endif
-				at_printf("\r\n[ATPS] A client connected to server[%d]\r\n"
+				at_printf("%sA client connected to server[%d]\r\n"
 					"con_id:%d,"
 					"seed,"
 					"ssl,"
 					"address:%s,"
 					"port:%d,"
-					"socket:%d", 
+					"socket:%d\r\n", 
+					"+SKTSERVER:",
 					ServerNodeUsed->con_id,
 					seednode->con_id,
 					inet_ntoa(s_cli_addr.sin_addr),
 					ntohs(s_cli_addr.sin_port),
 					seednode->sockfd
 				);
-				at_printf(STR_END_OF_ATCMD_RET);
+				//at_printf(STR_END_OF_ATCMD_RET);
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_unlock();
 				#endif
@@ -3426,10 +3443,11 @@ static void server_start(void *param)
 					#if CONFIG_LOG_SERVICE_LOCK
 					log_service_lock();
 					#endif
-					at_printf("\r\n[ATPS] OK"
-					"\r\n[ATPS] con_id=%d",
+					at_printf("%sOK\r\n"
+					"con_id=%d\r\n",
+					"+SKTSERVER:",
 					ServerNodeUsed->con_id);
-					at_printf(STR_END_OF_ATCMD_RET);
+					ATCMD_NEWLINE_HASHTAG();
 					#if CONFIG_LOG_SERVICE_LOCK
 					log_service_unlock();
 					#endif
@@ -3483,13 +3501,14 @@ static void server_start(void *param)
 							#if CONFIG_LOG_SERVICE_LOCK
 							log_service_lock();
 							#endif
-							at_printf("\r\n[ATPS] A client connected to server[%d]\r\n"
+							at_printf("%sA client connected to server[%d]\r\n"
 								"con_id:%d,"
 								"seed,"
 								"tcp,"
 								"address:%s,"
 								"port:%d,"
-								"socket:%d", 
+								"socket:%d\r\n",
+								"+SKTSERVER:",
 								ServerNodeUsed->con_id,
 								seednode->con_id,
 								inet_ntoa(s_cli_addr.sin_addr.s_addr),
@@ -3540,10 +3559,11 @@ static void server_start(void *param)
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_lock();
 				#endif
-				at_printf("\r\n[ATPS] OK"
-					"\r\n[ATPS] con_id=%d",
+				at_printf("%sOK\r\n"
+					"con_id=%d\r\n",
+					"+SKTSERVER:",
 					ServerNodeUsed->con_id);
-				at_printf(STR_END_OF_ATCMD_RET);
+				ATCMD_NEWLINE_HASHTAG();
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_unlock();
 				#endif
@@ -3572,8 +3592,13 @@ err_exit:
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_lock();
 	#endif
+#if ATCMD_VER == ATVER_2
+	at_printf("%sERROR:%d\r\n", "+SKTSERVER:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[ATPS] ERROR:%d", error_no);
 	at_printf(STR_END_OF_ATCMD_RET);
+#endif
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_unlock();
 	#endif
@@ -3743,8 +3768,8 @@ static void client_start(void *param)
 		#if CONFIG_LOG_SERVICE_LOCK
 		log_service_lock();
 		#endif
-		at_printf("\r\n[ATPC] OK\r\n[ATPC] con_id=%d",ClientNodeUsed->con_id);
-		at_printf(STR_END_OF_ATCMD_RET);
+		at_printf("%sOK\r\ncon_id=%d\r\n", "+SKTCLIENT:", ClientNodeUsed->con_id);
+		ATCMD_NEWLINE_HASHTAG();
 		#if CONFIG_LOG_SERVICE_LOCK
 		log_service_unlock();
 		#endif		
@@ -3770,8 +3795,8 @@ static void client_start(void *param)
 					#if CONFIG_LOG_SERVICE_LOCK
 					log_service_lock();
 					#endif
-					at_printf("\r\n[ATPC] OK\r\n[ATPC] con_id=%d",ClientNodeUsed->con_id);
-					at_printf(STR_END_OF_ATCMD_RET);
+					at_printf("%sOK\r\ncon_id=%d\r\n", "+SKTCLIENT:", ClientNodeUsed->con_id);
+					ATCMD_NEWLINE_HASHTAG();
 					#if CONFIG_LOG_SERVICE_LOCK
 					log_service_unlock();
 					#endif
@@ -3855,8 +3880,8 @@ static void client_start(void *param)
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_lock();
 				#endif
-				at_printf("\r\n[ATPC] OK\r\n[ATPC] con_id=%d",ClientNodeUsed->con_id);
-				at_printf(STR_END_OF_ATCMD_RET);
+				at_printf("%sOK\r\ncon_id=%d\r\n", "+SKTCLIENT:", ClientNodeUsed->con_id);
+				ATCMD_NEWLINE_HASHTAG();
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_unlock();
 				#endif
@@ -3882,8 +3907,13 @@ err_exit:
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_lock();
 	#endif
+#if ATCMD_VER == ATVER_2
+	at_printf("%sERROR:%d\r\n", "+SKTCLIENT:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[ATPC] ERROR:%d", error_no);
 	at_printf(STR_END_OF_ATCMD_RET);
+#endif
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_unlock();
 	#endif
@@ -4227,11 +4257,12 @@ void fATP0(void *arg){
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATP0]: _AT_TRANSPORT_ERRNO");
 #ifdef ERRNO
-	at_printf("\r\n[ATP0] OK:%d", errno);
+	at_printf("%sOK:%d\r\n", "+SKTGETERR:", errno);
 #else
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,"errno isn't enabled");
-	at_printf("\r\n[ATP0] ERROR");
+	at_printf("%sERROR\r\n", "+SKTGETERR:");
 #endif
+	ATCMD_NEWLINE_HASHTAG();
 }
 
 void fATPC(void *arg){
@@ -4342,8 +4373,18 @@ void fATPC(void *arg){
 err_exit:
 	if(clientnode)
 		delete_node(clientnode);
+#if ATCMD_VER == ATVER_2
+	at_printf("%sERROR:%d\r\n", "+SKTCLIENT:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[ATPC] ERROR:%d", error_no);
+#endif
+	return;
 exit:
+#if ATCMD_VER == ATVER_2
+	at_printf("%sOK\r\n", "+SKTCLIENT:");
+	ATCMD_NEWLINE_HASHTAG();
+#endif
 	return;
 }
 
@@ -4419,8 +4460,18 @@ void fATPS(void *arg){
 err_exit:
 	if(servernode)
 		delete_node(servernode);
+#if ATCMD_VER == ATVER_2
+	at_printf("%sERROR:%d\r\n", "+SKTSERVER:", error_no);
+	ATCMD_NEWLINE_HASHTAG();
+#else
 	at_printf("\r\n[ATPS] ERROR:%d", error_no);
+#endif
+	return;
 exit:
+#if ATCMD_VER == ATVER_2
+	at_printf("%sOK\r\n", "+SKTSERVER:");
+	ATCMD_NEWLINE_HASHTAG();
+#endif
 	return;
 }
 
@@ -4470,9 +4521,10 @@ void fATPD(void *arg){
 exit:
 	s_node = NULL;
 	if(error_no)
-		at_printf("\r\n[ATPD] ERROR:%d", error_no);
+		at_printf("%sERROR:%d\r\n", "+SKTDEL:", error_no);
 	else
-		at_printf("\r\n[ATPD] OK");
+		at_printf("%sOK\r\n", "+SKTDEL:");
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
 
@@ -4534,7 +4586,9 @@ exit:
 }
 
 void fATPT(void *arg){
-
+#if ATCMD_VER == ATVER_2
+	const char *sendCmd = "AT+SKTSEND";
+#endif
 	int argc;
 	char *argv[MAX_ARGC] = {0};
 	int con_id = INVALID_CON_ID;
@@ -4549,8 +4603,11 @@ void fATPT(void *arg){
 		"[ATPT]: _AT_TRANSPORT_SEND_DATA");
 	
 	argc = parse_param(arg, argv);
-
+#if ATCMD_VER == ATVER_2
+	if(argc < 3) {
+#else
 	if(argc != 3 && argc != 5) {
+#endif
 		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,
 			"[ATPT] Usage: ATPT=<data_size>,"
 			"<con_id>[,<dst_ip>,<dst_port>]"
@@ -4560,21 +4617,36 @@ void fATPT(void *arg){
 		goto exit;
 	}
 
+#if ATCMD_VER == ATVER_2
+	data_pos = strlen(sendCmd) + 1;
+	// data_pos = C_NUM_AT_CMD + C_NUM_AT_CMD_DLT+ strlen(arg) + 1;
+	// data = (u8 *)log_buf + data_pos;
+#else
 	data_pos = C_NUM_AT_CMD + C_NUM_AT_CMD_DLT+ strlen(arg) + 1;
 	data = (u8 *)log_buf + data_pos;
+#endif
 
 	data_sz = atoi((char*)argv[1]);
 	if(data_sz > MAX_BUFFER){
 		error_no = 2;
 		goto exit;
 	}
-	
+#if ATCMD_VER == ATVER_2
+	data_pos += strlen(argv[1]) + 1;
+#endif
+
 	con_id = atoi((char*)argv[2]);
 	curnode = seek_node(con_id);
 	if(curnode == NULL){
 		error_no = 3;
 		goto exit;
 	}
+#if ATCMD_VER == ATVER_2	
+	for(; log_buf[data_pos] <= '9' && log_buf[data_pos] >= '0'; data_pos++) {
+		/* Do nothing, just push index data_pos. */
+	}
+	data_pos++;
+#endif
 
 	if((curnode->protocol == NODE_MODE_UDP)
 		&&(curnode->role == NODE_ROLE_SERVER))
@@ -4590,13 +4662,20 @@ void fATPT(void *arg){
 			error_no = 4;
 			goto exit;
 		}
+#if ATCMD_VER == ATVER_2
+		data_pos += strlen(argv[3]) + strlen(argv[4]) + 2;
+#endif
 	}
+#if ATCMD_VER == ATVER_2
+	data = (u8 *)log_buf + data_pos;
+#endif
 	error_no = atcmd_lwip_send_data(curnode, data, data_sz, cli_addr);
 exit:
 	if(error_no)
-		at_printf("\r\n[ATPT] ERROR:%d,%d", error_no, con_id);
+		at_printf("%sERROR:%d\r\ncon_id=%d\r\n", "+SKTSEND:", error_no, con_id);
 	else
-		at_printf("\r\n[ATPT] OK,%d", con_id);
+		at_printf("%sOK\r\ncon_id=%d\r\n", "+SKTSEND:", con_id);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
 
@@ -4713,19 +4792,20 @@ exit:
 		if(curnode->protocol == NODE_MODE_UDP && curnode->role == NODE_ROLE_SERVER){
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 					"\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, con_id, udp_clientaddr, udp_clientport, rx_buffer);
-			at_printf("\r\n[ATPR] OK,%d,%d,%s,%d:", recv_size, con_id, udp_clientaddr, udp_clientport);
+			at_printf("%sOK,%d,%d,%s,%d:\r\n", "+SKTREAD:", recv_size, con_id, udp_clientaddr, udp_clientport);
 		}
 		else{
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 					"\r\n[ATPR] OK,%d,%d:%s", recv_size, con_id, rx_buffer);
-			at_printf("\r\n[ATPR] OK,%d,%d:", recv_size, con_id);
+			at_printf("%sOK,%d,%d:\r\n", "+SKTREAD:", recv_size, con_id);
 		}
 		if(recv_size)
 			at_print_data(rx_buffer, recv_size);
 #endif // #if (EXTEND_ATPR_SIZE)
 	}
 	else
-		at_printf("\r\n[ATPR] ERROR:%d,%d", error_no, con_id);
+		at_printf("%sERROR:%d,%d\r\n", "+SKTREAD:", error_no, con_id);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
 
@@ -4767,9 +4847,10 @@ void fATPK(void *arg){
 
 exit:
 	if(error_no)
-		at_printf("\r\n[ATPK] ERROR:%d", error_no);
+		at_printf("%sERROR:%d\r\n", "+SKTRECVCFG:", error_no);
 	else
-		at_printf("\r\n[ATPK] OK");
+		at_printf("%sOK\r\n", "+SKTRECVCFG:");
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
 
@@ -4814,9 +4895,10 @@ void fATPU(void *arg){
 
 exit:
 	if(error_no)
-		at_printf("\r\n[ATPU] ERROR:%d", error_no);
+		at_printf("%sERROR:%d\r\n", "+SKTTT:", error_no);
 	else
-		at_printf("\r\n[ATPU] OK");
+		at_printf("%sOK\r\n", "+SKTTT:");
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
 
@@ -4858,10 +4940,10 @@ void fATPL(void *arg)
 
 exit:
 	if(error_no == 0)
-		at_printf("\r\n[ATPL] OK");
+		at_printf("%sOK\r\n", "+SKTAUTOLINK:");
 	else
-		at_printf("\r\n[ATPL] ERROR:%d",error_no);
-
+		at_printf("%sERROR:%d\r\n", "+SKTAUTOLINK:",error_no);
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
 
@@ -4928,9 +5010,10 @@ void fATPP(void *arg){
 
 exit:
 	if(error_no)
-		at_printf("\r\n[ATPP] ERROR:%d", error_no);
+		at_printf("%sERROR:%d\r\n", "+PING:", error_no);
 	else
-		at_printf("\r\n[ATPP] OK");
+		at_printf("%sOK\r\n", "+PING:");
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
 
@@ -4946,7 +5029,7 @@ void fATPI(void *arg){
 		if(n->con_id == 0)
 			continue;
 
-		at_printf("\r\ncon_id:%d,", n->con_id);
+		at_printf("%s\r\ncon_id:%d,", "+SKTSTATE:", n->con_id);
 
 		if(n->role == NODE_ROLE_SERVER)
 			at_printf("server,");
@@ -4962,13 +5045,13 @@ void fATPI(void *arg){
 			at_printf("udp,");
 
 		addr.s_addr = htonl(n->addr);
-		at_printf("address:%s,port:%d,socket:%d", inet_ntoa(addr) ,n->port, n->sockfd);
+		at_printf("address:%s,port:%d,socket:%d\r\n", inet_ntoa(addr) ,n->port, n->sockfd);
 		if(n->nextseed != NULL)
 		{
 			node* seed = n;
 			do{
 				seed = seed->nextseed;
-				at_printf("\r\ncon_id:%d,seed,", seed->con_id);
+				at_printf("%scon_id:%d,seed,", "+SKTSTATE:", seed->con_id);
 				if(seed->protocol == NODE_MODE_TCP)
 					at_printf("tcp,");
 #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
@@ -4978,14 +5061,14 @@ void fATPI(void *arg){
 				else
 					at_printf("udp,");
 				addr.s_addr = htonl(seed->addr);
-				at_printf("address:%s,port:%d,socket:%d", inet_ntoa(addr), seed->port, seed->sockfd);
+				at_printf("address:%s,port:%d,socket:%d\r\n", inet_ntoa(addr), seed->port, seed->sockfd);
 			}while (seed->nextseed != NULL);
 		}
 		n = n->next;
 	}
 
-	at_printf("\r\n[ATPI] OK");
-
+	at_printf("%sOK\r\n", "+SKTSTATE:");
+	ATCMD_NEWLINE_HASHTAG();
 	return;
 }
 
@@ -5457,17 +5540,17 @@ static void atcmd_lwip_receive_task(void *param)
 					if(curnode->protocol == NODE_MODE_UDP && curnode->role == NODE_ROLE_SERVER){
 						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 								"\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, curnode->con_id, udp_clientaddr, udp_clientport, rx_buffer);
-						at_printf("\r\n[ATPR] OK,%d,%d,%s,%d:", recv_size, curnode->con_id, udp_clientaddr, udp_clientport);
+						at_printf("%sOK,%d,%d,%s,%d:\r\n", "+SKTREAD:", recv_size, curnode->con_id, udp_clientaddr, udp_clientport);
 					}
 					else{
 						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 								"\r\n[ATPR] OK,%d,%d:%s", 
 								recv_size, 
 								curnode->con_id, rx_buffer);
-						at_printf("\r\n[ATPR] OK,%d,%d:", recv_size, curnode->con_id);
+						at_printf("%sOK,%d,%d:\r\n", "+SKTREAD:", recv_size, curnode->con_id);
 					}
 					at_print_data(rx_buffer, recv_size);
-					at_printf(STR_END_OF_ATCMD_RET);
+					ATCMD_NEWLINE_HASHTAG();
 					#if CONFIG_LOG_SERVICE_LOCK
 					log_service_unlock();
 					#endif
@@ -5477,8 +5560,8 @@ static void atcmd_lwip_receive_task(void *param)
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_lock();
 				#endif
-				at_printf("\r\n[ATPR] ERROR:%d,%d", error_no, curnode->con_id);				
-				at_printf(STR_END_OF_ATCMD_RET);
+				at_printf("%sERROR:%d,%d\r\n", "+SKTREAD:", error_no, curnode->con_id);				
+				ATCMD_NEWLINE_HASHTAG();
 				#if CONFIG_LOG_SERVICE_LOCK
 				log_service_unlock();
 				#endif
@@ -5958,17 +6041,17 @@ log_item_t at_transport_items[ ] = {
 	{"ATRB", fATRB,},//SET WRITE PACKET SIZE
 #endif
 #if ATCMD_VER == ATVER_2 
-	{"ATP0", fATP0,},//query errno if defined
-	{"ATPS", fATPS,},//Create Server
-	{"ATPD", fATPD,},//Close Server/Client connection
-	{"ATPC", fATPC,},//Create Client
-	{"ATPT", fATPT,},//WRITE DATA
-	{"ATPR", fATPR,},//READ DATA
-	{"ATPK", fATPK,},//Auto recv
-	{"ATPP", fATPP,},//PING
-	{"ATPI", fATPI,},//printf connection status
-	{"ATPU", fATPU,}, //transparent transmission mode
-	{"ATPL", fATPL,}, //lwip auto reconnect setting
+	{"+SKTGETERR", fATP0,},//query errno if defined
+	{"+SKTSERVER", fATPS,},//Create Server
+	{"+SKTDEL", fATPD,},//Close Server/Client connection
+	{"+SKTCLIENT", fATPC,},//Create Client
+	{"+SKTSEND", fATPT,},//WRITE DATA
+	{"+SKTREAD", fATPR,},//READ DATA
+	{"+SKTRECVCFG", fATPK,},//Auto recv
+	{"+PING", fATPP,},//PING
+	{"+SKTSTATE", fATPI,},//printf connection status
+	{"+SKTTT", fATPU,}, //transparent transmission mode
+	{"+SKTAUTOLINK", fATPL,}, //lwip auto reconnect setting
 #endif
 };
 
@@ -5979,7 +6062,7 @@ void print_tcpip_at(void *arg){
 
 	cmd_len = sizeof(at_transport_items)/sizeof(at_transport_items[0]);
 	for(index = 0; index < cmd_len; index++)
-		at_printf("\r\n%s", at_transport_items[index].log_cmd);
+		at_printf("AT%s\r\n", at_transport_items[index].log_cmd);
 }
 #endif
 
