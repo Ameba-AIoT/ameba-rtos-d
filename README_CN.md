@@ -76,14 +76,21 @@ setup-2.912.x86.exe --allow-unsupported-windows --site http://ctm.crouchingtiger
 
 ## 连接串口
 
-> 在AmebaD开发板上，使用FTDI芯片和FT232芯片作为日志输出和调试器。为了观察日志输出，可以使用例如``SecureCRT``/``TeraTerm``/``Putty``等其他的终端工具。以下我们将使用内部开发的工具作为例子来展示。 
+> 在AmebaD开发板上，使用FTDI芯片和FT232芯片作为日志输出和调试器。为了观察日志输出，可以使用例如``SecureCRT``/``TeraTerm``/``Putty``等其他的终端工具。
 
-1) 选择实际使用的串口名称，配置串口参数并且打开串口。
+1) 选择实际使用的串口名称，配置串口参数并且打开串口。默认波特率为115200bps。
 2) 按下AmebaD开发板上的重启按钮，终端将会打印以下信息。
 
-	<p align = "center">    
-		<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_4.png" width="500" />
-	</p>
+	```
+	12:27:31.549  calibration_ok:[2:19:11] 
+	12:27:31.656  interface 0 is initialized
+	12:27:31.658  interface 1 is initialized
+	12:27:31.659  
+	12:27:31.660  Initializing WIFI ...
+	12:27:31.757  WIFI initialized
+	12:27:31.758  
+	12:27:31.760  init_thread(58), Available heap 0x292c0
+	```
 
 # 4 编译项目
 

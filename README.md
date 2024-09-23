@@ -77,14 +77,21 @@ setup-2.912.x86.exe --allow-unsupported-windows --site http://ctm.crouchingtiger
 
 ## Connection to Log Console
 
-> On AmebaD board, FTDI Chip and FT232 can be used for the log console and debugger. To view the log console, make use of the terminal tool, such as ``SecureCRT``/``TeraTerm``/``Putty`` and etc. We will take our internal tool as an example. 
+> On AmebaD board, FTDI Chip and FT232 can be used for the log console and debugger. To view the log console, make use of the terminal tool, such as ``SecureCRT``/``TeraTerm``/``Putty`` and etc. 
 
-1) Select the corresponding serial uart configure communicate parameter and then open it. 
+1) Select the corresponding serial uart configure communicate parameter and then open it. The default baudrate is 115200bps.
 2) Press the Reset button on Ameba-D board. Some messages can be found in the terminal.
 
-	<p align = "center">    
-		<img src="https://www.amebaiot.com/wp-content/uploads/2020/02/guide_d_4.png" width="500" />
-	</p>
+	```
+	12:27:31.549  calibration_ok:[2:19:11] 
+	12:27:31.656  interface 0 is initialized
+	12:27:31.658  interface 1 is initialized
+	12:27:31.659  
+	12:27:31.660  Initializing WIFI ...
+	12:27:31.757  WIFI initialized
+	12:27:31.758  
+	12:27:31.760  init_thread(58), Available heap 0x292c0
+	```
 
 # 4 Building the First Project on Ameba-D
 
