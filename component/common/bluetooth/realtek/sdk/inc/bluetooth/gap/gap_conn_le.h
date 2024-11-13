@@ -208,6 +208,25 @@ bool        le_get_conn_addr(uint8_t conn_id, uint8_t *bd_addr, uint8_t *bd_type
 bool        le_get_conn_id(uint8_t *bd_addr, uint8_t bd_type, uint8_t *p_conn_id);
 
 /**
+  * @brief  Get connection handle.
+  * @param[in]  conn_id Connection ID
+  * @return connection handle
+  * @retval 0xFFFF Get failed
+  * @retval Other Success
+  */
+uint16_t    le_get_conn_handle(uint8_t conn_id);
+
+/**
+  * @brief  Get connection ID from connection handle.
+  * @param[in]  conn_handle Connection handle
+  * @param[in, out] p_conn_id Connection ID
+  * @return Get result
+  * @retval true Success
+  * @retval false Get failed
+  */
+bool        le_get_conn_id_by_handle(uint16_t conn_handle, uint8_t *p_conn_id);
+
+/**
 * @brief   Get the active link number.
 *
 * @return  Active link number

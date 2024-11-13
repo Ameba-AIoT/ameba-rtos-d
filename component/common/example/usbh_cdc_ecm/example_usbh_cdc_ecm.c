@@ -33,11 +33,13 @@ extern void rltk_mii_init(void);
 extern void ethernetif_mii_recv(u8 *buf, u32 total_len);
 extern void dns_setserver(u8_t numdns, const ip_addr_t *dnsserver);
 extern struct netif xnetif[NET_IF_NUM];
+static void ecm_appx_cb_rxdata(u8 *pbuf, u32 len,u8 type);
 
 
 /* Private macros ------------------------------------------------------------*/
 #define ENABLE_DUMP_FILE                        0
 #define ENABLE_REMOTE_FILE_DOWNLOAD             0
+#define ENABLE_USER_SET_DONGLE_MAC              0
 
 #define PBUF_MAX_LEN                            (128)
 #define NETWORK_INFO_MAX_STR                    (128)
@@ -79,6 +81,21 @@ typedef struct {
     u8 dns[NETWORK_INFO_MAX_STR];
 } network_info_t;
 
+
+static u16 led_color[1]={0x1122};
+static u8 mac_valid[6]= {0x00,0x11,0x22,0x33,0x44,0x55};
+static usbh_cdc_ecm_priv_data_t ecm_priv = {
+	ecm_appx_cb_rxdata,
+#if ENABLE_USER_SET_DONGLE_MAC
+	mac_valid,
+	led_color,
+	sizeof(led_color)/sizeof(led_color[0]),
+#else
+	NULL,
+	NULL,
+	0,
+#endif
+};
 
 /* Private variables ---------------------------------------------------------*/
 #if ENABLE_REMOTE_FILE_DOWNLOAD
@@ -330,7 +347,7 @@ static int ecm_netif_init(void)
 
 static u8 cdc_ecm_do_init(void)
 {
-	return usbh_cdc_ecm_do_init(ethernetif_mii_recv,ecm_appx_cb_rxdata);
+	return usbh_cdc_ecm_do_init(ethernetif_mii_recv,&ecm_priv);
 }
 static u8 ecm_dongle_EG915_diag(void)
 {
@@ -621,19 +638,18 @@ static void ecm_link_change_thread(void *param) {
 
 	while(1) {
 		link_is_up = usbh_cdc_ecm_get_connect_status();
-		printf("Link_is_up = %d\n", link_is_up);
+		//printf("Link_is_up = %d\n", link_is_up);
 		if((USB_DEFAULT_VID == vid)
 			|| ((USB_EF_DONGLE_VID == vid) &&(pid == EF_DONGLE_PID_EG91))){
 			//dhcp issue, ethernet
 			if(1 == link_is_up && (ethernet_unplug < ETH_STATUS_INIT)) {	// unlink -> link
-				printf("Will do dhcp \n");
 				ethernet_unplug = ETH_STATUS_INIT;
 				if((vid == USB_EF_DONGLE_VID)&&(pid == EF_DONGLE_PID_EG91)){
 					mac = dongle_mac;
 				} else {
 					mac = (u8*)usbh_cdc_ecm_process_mac_str();
 				}
-				printf("MAC:%02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+				printf("Will do dhcp MAC:%02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 				memcpy(xnetif[NET_IF_NUM - 1].hwaddr, mac, 6);
 
 				dhcp_status = LwIP_DHCP(NET_IF_NUM - 1, DHCP_START);

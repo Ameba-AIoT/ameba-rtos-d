@@ -1881,6 +1881,12 @@ void wext_set_enable_80211k(__u8 enable)
 }
 #endif
 
+extern u8 set_exclude_ext_cap;
+void wext_exclude_ext_cap(__u8 enable)
+{
+	set_exclude_ext_cap = enable;
+}
+
 #ifdef CONFIG_POWER_SAVING
 extern u8 rtw_power_mgnt;
 void wext_set_powersave_mode(__u8 ps_mode){
@@ -1904,4 +1910,16 @@ void wext_set_wifi_ampdu_tx(__u8 enable){
 extern void rtw_get_bcn_country_code(unsigned char* country_code_get);
 void wext_get_country_code(unsigned char* country_code_get){
 	rtw_get_bcn_country_code(country_code_get);
+}
+
+void wext_auto_set_adaptivity(__u8 mode)
+{
+	extern u8 rtw_auto_adaptivity_en;
+	rtw_auto_adaptivity_en = mode;
+}
+
+void wext_change_mgnt_datarate(__u8 mode)
+{
+	extern u8 change_mgnt_datatrate;
+	change_mgnt_datatrate = mode;
 }

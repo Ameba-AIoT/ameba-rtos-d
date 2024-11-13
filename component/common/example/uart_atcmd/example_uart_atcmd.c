@@ -482,11 +482,6 @@ void uart_irq(uint32_t id, SerialIrq event)
 			if(buf_count>0){
 				buf_count--;
 				temp_buf[buf_count] = '\0';
-				if(gAT_Echo == 1){
-					serial_putc(sobj, rc);
-					serial_putc(sobj, ' ');
-					serial_putc(sobj, rc);
-				}
 			}
 		}
 		else{
@@ -502,9 +497,6 @@ void uart_irq(uint32_t id, SerialIrq event)
 			if(buf_count < (LOG_SERVICE_BUFLEN - 1)){
 				temp_buf[buf_count] = rc;
 				buf_count++;
-				if(gAT_Echo == 1){
-					serial_putc(sobj, rc);
-				}
 			}
 			else if(buf_count == (LOG_SERVICE_BUFLEN - 1)){
 				temp_buf[buf_count] = '\0';

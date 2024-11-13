@@ -52,6 +52,13 @@ typedef void (*usb_report_usbdata)(u8 *buf, u32 len);
 /* CDC ECM appx data report interface */
 typedef void (*usb_appx_report)(u8 *buf, u32 len,u8 type);
 
+typedef struct {
+	usb_appx_report                     appx_cb;       /* app callback api */
+	u8                                  *mac_value;    /* mac value */
+	u16                                 *led_array;    /* led array */
+	u8                                  led_cnt;       /* led cnt */
+} usbh_cdc_ecm_priv_data_t;
+
 /* Exported macros -----------------------------------------------------------*/
 
 /* Exported variables --------------------------------------------------------*/
@@ -59,7 +66,7 @@ typedef void (*usb_appx_report)(u8 *buf, u32 len,u8 type);
 /* Exported functions --------------------------------------------------------*/
 /* USB Common Api */
 /* ECM Init Api */
-u8          usbh_cdc_ecm_do_init(usb_report_usbdata ecm_cb,usb_appx_report appx_cb);
+u8          usbh_cdc_ecm_do_init(usb_report_usbdata ecm_cb,usbh_cdc_ecm_priv_data_t *priv);
 u8          usbh_cdc_ecm_do_deinit(void);
 u8          usbh_cdc_ecm_usb_is_ready(void);
 

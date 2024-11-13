@@ -17,6 +17,9 @@ OBJS =
 all:
 
 ifneq ($(CONFIG_TOOLCHAIN_ARM_GCC), y)
+ifeq ($(CONFIG_MATTER_EN), y)
+	make -C $(MATTER_BUILDDIR)/toolchain km4_toolchain
+else
 	@if [ ! -f asdk/$(TOOLCHAINNAME) ]; then \
 		echo "Download Toolchain And Extract To $(TOOLCHAINDIR_OS). Only Download And Extract Once"; \
 		if wget -P asdk $(TOOLCHAINURL); then \
@@ -33,7 +36,7 @@ ifneq ($(CONFIG_TOOLCHAIN_ARM_GCC), y)
 		$(MKDIR) -p $(TOOLCHAINDIR_OS); \
 		tar -jxvf asdk/$(TOOLCHAINNAME) -C $(TOOLCHAINDIR_OS)/; \
 	fi
-
+endif
 else
 	$(MKDIR) -p cygwin
 	tar -zxvf ../../../tools/arm-none-eabi-gcc/4.8.3-2014q1.tar.gz -C cygwin/

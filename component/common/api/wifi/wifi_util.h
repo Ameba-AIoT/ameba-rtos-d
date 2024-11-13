@@ -103,6 +103,7 @@ void wext_set_roam_on_btm(__u8 enable);
 #if defined(CONFIG_IEEE80211K)
 void wext_set_enable_80211k(__u8 enable);
 #endif
+void wext_exclude_ext_cap(__u8 enable);
 void wext_set_powersave_mode(__u8 ps_mode);
 int wext_set_ant_div_gpio(__u8 type);
 int wext_set_bw40_enable(__u8 enable);
@@ -138,6 +139,8 @@ void wext_set_wifi_ampdu_tx(__u8 enable);
 #endif
 
 void wext_get_country_code(unsigned char* country_code_get);
+
+void wext_auto_set_adaptivity(__u8 mode);
 
 extern int (*p_wlan_mgmt_filter)(__u8 *ie, __u16 ie_len, __u16 frame_type);
 extern int (*p_wlan_action_filter)(__u8 *ie, __u16 ie_len, __u16 frame_type);

@@ -145,7 +145,7 @@ extern int wifi_set_beacon_mode(int mode);
  * static initialize all values for using fastconnect when log service disabled
  */
 static rtw_network_info_t wifi = {0};
-
+static rtw_scan_result_t scan_ap = {0};
 static rtw_ap_info_t ap = {0};
 static unsigned char password[65] = {0};
 #ifdef CONFIG_AP_SECURITY
@@ -267,11 +267,28 @@ static rtw_result_t app_scan_result_handler( rtw_scan_handler_result_t* malloced
 		record->SSID.val[record->SSID.len] = 0; /* Ensure the SSID is null terminated */
 
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
-		at_printf("\r\nAP : %d,", ++ApNum);
+		if (malloced_scan_result->user_data != NULL) {
+			rtw_scan_result_t* user_data = malloced_scan_result->user_data;
+			rtw_ssid_t* target_ssid = &user_data->SSID;
+			if((record->SSID.len == target_ssid->len) && (!memcmp(record->SSID.val, target_ssid->val, target_ssid->len))) {
+				if ((record->security == 0 && user_data->security == 0) || (record->security != 0 && user_data->security != 0)) {
+					if (user_data->signal_strength == 0) {
+						rtw_memcpy(user_data, record, sizeof(rtw_scan_result_t) - sizeof(rtw_802_11_band_t));
+					} else if (user_data->signal_strength < record->signal_strength) {
+						rtw_memcpy(user_data, record, sizeof(rtw_scan_result_t) - sizeof(rtw_802_11_band_t));
+					}
+				}
+			}
+		} else {
+			at_printf("\r\nAP : %d,", ++ApNum);
+			print_scan_result(record);
+		}
+		
 #else
 		RTW_API_INFO("%d\t ", ++ApNum);
-#endif
 		print_scan_result(record);
+#endif
+		
 #if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 		if(malloced_scan_result->user_data)
 			memcpy((void *)((char *)malloced_scan_result->user_data+(ApNum-1)*sizeof(rtw_scan_result_t)), (char *)record, sizeof(rtw_scan_result_t));
@@ -284,8 +301,13 @@ static rtw_result_t app_scan_result_handler( rtw_scan_handler_result_t* malloced
 		inic_c2h_msg("ATWS", RTW_SUCCESS, NULL, 0);
 #endif
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
+	if (malloced_scan_result->user_data == NULL) {
 		at_printf("%sOK\r\n", "+WLSCAN:");
 		ATCMD_NEWLINE_HASHTAG();
+	} else {
+		rtw_scan_result_t* user_data = malloced_scan_result->user_data;
+		user_data->band = 1;
+	}
 #endif
 		ApNum = 0;
 	}
@@ -352,7 +374,6 @@ exit:
         init_wifi_struct( );
 #if ATCMD_VER == ATVER_2
 	if(error_no==0) {
-		wifi_reg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl, NULL);
 		at_printf("%sOK\r\n", "+WLDISCONN:");
 	} else {
 		at_printf("%sERROR:%d\r\n","+WLDISCONN:",error_no);
@@ -523,6 +544,9 @@ void fATWx(void *arg){
 	u8 *gw = LwIP_GetGW(&xnetif[0]);
 	u8 *msk = LwIP_GetMASK(&xnetif[0]);
 	u8 mac_1[6];
+#if LWIP_IPV6
+	u8 *ipv6_0 = LwIP_GetIPv6_linklocal(&xnetif[0]);
+#endif
 #endif
 	u8 *ifname[2] = {(u8*)WLAN0_NAME,(u8*)WLAN1_NAME};
 	rtw_wifi_setting_t setting;
@@ -542,6 +566,9 @@ void fATWx(void *arg){
 			ip = LwIP_GetIP(&xnetif[i]);
 			gw = LwIP_GetGW(&xnetif[i]);
 			msk = LwIP_GetMASK(&xnetif[i]);
+#if LWIP_IPV6
+			ipv6_0 = LwIP_GetIPv6_linklocal(&xnetif[i]);
+#endif /* LWIP_IPV6 */
 #endif
 			printf("\n\r\nWIFI %s Status: Running",  ifname[i]);
 			printf("\n\r==============================");
@@ -571,7 +598,12 @@ void fATWx(void *arg){
 			printf("\n\r\tmsk  => %d.%d.%d.%d\n\r", msk[0], msk[1], msk[2], msk[3]);
 
 			wext_get_bssid((const char *)ifname[i], mac_1);
-			printf("\n\r\tBSSID => %02x:%02x:%02x:%02x:%02x:%02x", mac_1[0], mac_1[1], mac_1[2], mac_1[3], mac_1[4], mac_1[5]);
+			printf("\n\r\tBSSID => %02x:%02x:%02x:%02x:%02x:%02x\n\r", mac_1[0], mac_1[1], mac_1[2], mac_1[3], mac_1[4], mac_1[5]);
+#if LWIP_IPV6
+			printf("\n\r\tLink-local IPV6 => %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n\r",
+				ipv6_0[0], ipv6_0[1],  ipv6_0[2],  ipv6_0[3],  ipv6_0[4],  ipv6_0[5],  ipv6_0[6], ipv6_0[7],
+				ipv6_0[8], ipv6_0[9], ipv6_0[10], ipv6_0[11], ipv6_0[12], ipv6_0[13], ipv6_0[14], ipv6_0[15]);
+#endif /* LWIP_IPV6 */
 #endif
 			if(setting.mode == RTW_MODE_AP || i == 1)
 			{
@@ -2437,6 +2469,7 @@ void fATPA(void *arg)
 #endif
 
 	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl);
+	wifi_unreg_event_handler(WIFI_EVENT_FOURWAY_HANDSHAKE_DONE, atcmd_wifi_connected_hdl);
 	wifi_unreg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl);
 
 #if (defined(CONFIG_PLATFORM_8710C)||defined(CONFIG_PLATFORM_8721D)) && (defined(CONFIG_BT) && CONFIG_BT)
@@ -2724,34 +2757,65 @@ void fATPN(void *arg)
 		wifi_set_pscan_chan(&connect_channel, &pscan_config, 1);
 #endif
 
-	if(rltk_wlan_channel_switch_announcement_is_enable()){
+	if (rltk_wlan_channel_switch_announcement_is_enable()) {
         printf("[ATPN]rltk_wlan_channel_switch_announcement_is_enable\r\n");
-		if(wifi_mode == RTW_MODE_STA_AP){
-			int security_retry_count = 0;
-			while (1) {
-				if (_get_ap_security_mode((char*)wifi.ssid.val, &wifi.security_type, &connect_channel))
-					break;
-				security_retry_count++;
-				if(security_retry_count >= 3){
-					printf("Can't get AP security mode and channel.\n");
-					ret = RTW_NOTFOUND;
-					goto exit;
+
+		if (scan_ap.signal_strength == 0 || scan_ap.SSID.len == 0 || wifi.ssid.len != scan_ap.SSID.len || memcmp(wifi.ssid.val, scan_ap.SSID.val, wifi.ssid.len)) {
+			memset(&scan_ap, 0, sizeof(rtw_scan_result_t));
+	
+			strncpy(scan_ap.SSID.val, wifi.ssid.val, wifi.ssid.len);
+			scan_ap.SSID.len = wifi.ssid.len;
+			scan_ap.security = wifi.security_type;
+
+			u8 scan_count = 0;
+			int scan_timeout = 500;
+			while (scan_ap.signal_strength == 0 && scan_count < 3) {
+				wifi_scan_networks(app_scan_result_handler, &scan_ap);
+
+				scan_ap.band = 0;
+				while (scan_ap.band == 0 && scan_timeout != 0) {
+					vTaskDelay(10);
+					scan_timeout--;
 				}
+				scan_count++;
+				scan_timeout = 500;
 			}
+		}
+
+		if (scan_ap.signal_strength == 0 || scan_ap.signal_strength <= -80) {
+			memset(&scan_ap, 0, sizeof(rtw_scan_result_t));
+			error_no = 6;
+			goto exit;
+		}
+		
+		connect_channel = scan_ap.channel;
+		wifi.security_type = scan_ap.security;
+		memcpy(wifi.bssid.octet, scan_ap.BSSID.octet, 6);
+
+		if(wifi.security_type == RTW_SECURITY_WEP_PSK || wifi.security_type == RTW_SECURITY_WEP_SHARED) {
+			wifi.key_id = (wifi.key_id <0 || wifi.key_id > 3) ? 0 : wifi.key_id;
+		}
+		assoc_by_bssid = 1;
+
+		if(wifi_mode == RTW_MODE_STA_AP) {
 			//disable wlan1 issue_deauth when channel switched by wlan0
 			ret = wifi_set_ch_deauth(0);
 			if(ret != 0){
 				printf("wifi_set_ch_deauth FAIL\n");
+				error_no = 3;
 				goto exit;
 			}
 			//softap switch chl and inform
-			if(wifi_ap_switch_chl_and_inform(connect_channel)!=RTW_SUCCESS)
-				printf("wifi_ap_switch_chl_and_inform FAIL\n");
-
-			pscan_config = PSCAN_ENABLE;
-			if(connect_channel > 0 && connect_channel <= 165) {
-				wifi_set_pscan_chan(&connect_channel, &pscan_config, 1);
+			if(connect_channel > 0 && connect_channel <= 165) { 
+				if(wifi_ap_switch_chl_and_inform(connect_channel)!=RTW_SUCCESS) {
+					printf("wifi_ap_switch_chl_and_inform FAIL\n");
+				}
 			}
+		}
+
+		pscan_config = PSCAN_ENABLE;
+		if(connect_channel > 0 && connect_channel <= 165) {
+			wifi_set_pscan_chan(&connect_channel, &pscan_config, 1);
 		}
 	}
 
@@ -2759,12 +2823,15 @@ void fATPN(void *arg)
 		ret = wifi_set_ch_deauth(0);
 		if(ret != 0){
 			printf("wifi_set_ch_deauth FAIL\n");
+			error_no = 3;
 			goto exit;
 		}
 	}
 
 	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl);
+	wifi_unreg_event_handler(WIFI_EVENT_FOURWAY_HANDSHAKE_DONE, atcmd_wifi_connected_hdl);
 	wifi_unreg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl);
+
 	if(assoc_by_bssid){
 		ret = wifi_connect_bssid(wifi.bssid.octet, (char*)wifi.ssid.val, wifi.security_type, (char*)wifi.password,
 						ETH_ALEN, wifi.ssid.len, wifi.password_len, wifi.key_id, NULL);
@@ -2774,7 +2841,6 @@ void fATPN(void *arg)
 	}
 
 	if(ret!= RTW_SUCCESS){
-		//at_printf("\r\n[ATPN] ERROR: Can't connect to AP");
 		error_no = 4;
 		goto exit;
 	}
@@ -2797,9 +2863,17 @@ exit:
 	if(wifi_mode == RTW_MODE_STA_AP) {
 		wifi_set_ch_deauth(1);
 	}
+
+	memset(&scan_ap, 0, sizeof(rtw_scan_result_t));
 	
 	init_wifi_struct();
-	wifi_reg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl, NULL);
+
+	if (wifi.security_type == RTW_SECURITY_OPEN) {
+		wifi_reg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl, NULL);
+	} else {
+		wifi_reg_event_handler(WIFI_EVENT_FOURWAY_HANDSHAKE_DONE, atcmd_wifi_connected_hdl, NULL);
+	}
+	
 	if(error_no == 0){
 		wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl, NULL);
 		at_printf("%sOK\r\n", "+WLCONN:");
@@ -3180,9 +3254,13 @@ int atcmd_wifi_restore_from_flash(void)
 		
 #if CONFIG_AUTO_RECONNECT
 		//setup reconnection flag
-		wifi_set_autoreconnect(0);
+		wifi_set_autoreconnect(2);
 #endif
-		wifi_reg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl, NULL);
+		if (data->reconn[data->reconn_last_index].security_type == RTW_SECURITY_OPEN) {
+			wifi_reg_event_handler(WIFI_EVENT_CONNECT, atcmd_wifi_connected_hdl, NULL);
+		} else {
+			wifi_reg_event_handler(WIFI_EVENT_FOURWAY_HANDSHAKE_DONE, atcmd_wifi_connected_hdl, NULL);
+		}
 
 		int last_index = data->reconn_last_index;
 		for(i = 0; i < data->reconn_num; i++){
@@ -3265,6 +3343,19 @@ void fATPG(void *arg)
 
 	//ENABLE FAST CONNECT
 	if(argv[1] != NULL){
+		if('?' == argv[1][0]) {
+			struct atcmd_wifi_conf *data = (struct atcmd_wifi_conf *)rtw_zmalloc(sizeof(struct atcmd_wifi_conf));
+			if(data){
+				atcmd_update_partition_info(AT_PARTITION_WIFI, AT_PARTITION_READ, (u8 *)data, sizeof(struct atcmd_wifi_conf));
+			} else {
+				error_no = 3;
+				goto exit;
+			}
+			at_printf("%s%d\r\n", "+WLAUTOCONN:", data->auto_enable == 1 ? 1 : 0);
+			ATCMD_NEWLINE_HASHTAG();
+			rtw_free(data);
+			return;
+	    }
 #if 0
 		device_mutex_lock(RT_DEV_LOCK_FLASH);
 		flash_stream_read(&flash, FAST_RECONNECT_DATA, sizeof(struct wlan_fast_reconnect), (u8 *) &read_data);
@@ -4290,16 +4381,59 @@ err_exit:
 }
 
 void fATWR(void *arg){
-	/* To avoid gcc warnings */
-	( void ) arg;
+       /* To avoid gcc warnings */
+       ( void ) arg;
+       
+       int rssi = 0;
+       printf("[ATWR]: _AT_WLAN_GET_RSSI_\n\r"); 
+       wifi_get_rssi(&rssi);
+       at_printf("RSSI = %d\r\n", rssi);
+       at_printf("%sOK\r\n", "+WLRSSI:");
+	   ATCMD_NEWLINE_HASHTAG();
+}
+
+void fATWr(void *arg){
+	int rssi = 0, argc = 0, error_no;
+	char ssid[33] = {0};
+	rtw_scan_result_t* user_data = &scan_ap;
+	char *argv[MAX_ARGC] = {0};
+
+	argc = parse_param(arg, argv);
+
+	if (argc != 3 || argv[1] == NULL || argv[2] == NULL) {
+		error_no = 1;
+		goto exit;
+	}
+
+	memset(user_data, 0, sizeof(rtw_scan_result_t));
 	
-	int rssi = 0;
-	printf("[ATWR]: _AT_WLAN_GET_RSSI_\n\r"); 
-	wifi_get_rssi(&rssi);
-	at_printf("RSSI = %d\r\n", rssi);
-	at_printf("%sOK\r\n", "+WLRSSI:");
+	strncpy(user_data->SSID.val, (char*)argv[1], strlen(argv[1]));
+	user_data->SSID.len = strlen(argv[1]);
+	user_data->security = atoi(argv[2]);
+
+	for (int i = 0; i < 3; i++) {
+		wifi_scan_networks(app_scan_result_handler, user_data);
+		user_data->band = 0;
+		while (user_data->band == 0) {
+			vTaskDelay(10);
+		}
+	}
+	
+	if (user_data->signal_strength) {
+		at_printf("RSSI = %d\r\n", user_data->signal_strength);
+		at_printf("%sOK\r\n", "+WLAPRSSI:");
+		ATCMD_NEWLINE_HASHTAG();
+		return;
+	} else {
+		error_no = 2;
+	}
+
+exit:
+	at_printf("%sERROR:%d\r\n", "+WLAPRSSI:", error_no);
 	ATCMD_NEWLINE_HASHTAG();
 }
+
+
 
 void print_wlan_help(void *arg){
 	at_printf("\r\nWLAN AT COMMAND SET:");
@@ -4573,6 +4707,7 @@ log_item_t at_wifi_items[ ] = {
 	{"+SSLCRET", fATPB,},  // read/write ca cert
 	{"+HTTPCLIENT", fATPb,},  // set http client
 	{"+WLRSSI", fATWR,},//Read RSSI
+	{"+WLAPRSSI", fATWr,},//Read RSSI
 #if (CONFIG_INCLUDE_SIMPLE_CONFIG)
 	{"+WLSMPLCFG", fATWQ,},
 #endif // #if (CONFIG_INCLUDE_SIMPLE_CONFIG)

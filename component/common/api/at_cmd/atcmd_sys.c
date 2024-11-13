@@ -831,13 +831,18 @@ delta_status_t *find_free_delta(delta_status_t *delta, int cnt)
 	return NULL;
 }
 
-static void update_status(void)
+static int update_status(void)
 {
 	delta_status_t *deltaone = NULL;
 	// init
 	if (task_status.last == NULL && task_status.curr == NULL) {
 		task_status.last = task_status.status[0];
 		task_status.curr = task_status.status[1];
+	}
+
+	if (uxTaskGetNumberOfTasks() > TASK_CNT) {
+		printf("number of tasks : %d(exceed TASK_CNT)! Please enlarge TASK_CNT\r\n", uxTaskGetNumberOfTasks());
+		return -1;
 	}
 
 	// update last
@@ -877,6 +882,8 @@ static void update_status(void)
 			}
 		}
 	}
+
+	return 0;
 }
 
 void print_delta(int delta_tick)
@@ -906,7 +913,9 @@ void cpu_stat_thread(void *dummy)
 	memcpy(ppara, dummy, sizeof(status_cmd_para_t));
 	last_tick = portGET_RUN_TIME_COUNTER_VALUE();
 	while ((xSemaphoreTake((SemaphoreHandle_t)top_exit_sema, ppara->time * 1000) == pdFALSE)) {
-		update_status();
+		if (update_status()) {
+			continue;
+		}
 		int delta_tick =  portGET_RUN_TIME_COUNTER_VALUE() - last_tick;
 		last_tick = portGET_RUN_TIME_COUNTER_VALUE();
 		print_delta(delta_tick);
@@ -957,7 +966,9 @@ void fATSP(void *arg)
 			break;
 		}
 		memset(&task_status, 0, sizeof(task_status));
-		update_status();
+		if (update_status()) {
+			break;
+		}
 		top_exit_sema = (void *)xSemaphoreCreateCounting(1, 0);
 		xTaskCreate(cpu_stat_thread, ((const char *)"cpu_stat_thread"), 4096, &para_in, configMAX_PRIORITIES - 1, NULL);
 		break;
@@ -978,7 +989,9 @@ void fATSP(void *arg)
 		if (top_exit_sema)	{
 			break;
 		}
-		update_status();
+		if (update_status()) {
+			break;
+		}
 		print_delta(portGET_RUN_TIME_COUNTER_VALUE() - last_tick);
 		last_tick = portGET_RUN_TIME_COUNTER_VALUE();
 		break;
@@ -1280,6 +1293,7 @@ void fATSx(void *arg)
 extern void sys_reset(void);
 void print_system_at(void *arg);
 extern void print_wifi_at(void *arg);
+extern void print_bt_at(void *arg);
 extern void print_tcpip_at(void *arg);
 #if ((defined CONFIG_MQTT_EN) && (1 == CONFIG_MQTT_EN))
 extern void print_mqtt_at(void *arg);
@@ -1309,6 +1323,14 @@ void fATSh(void *arg)
     /* Wifi command. */
     at_printf("Wi-Fi AT Command:\r\n");
     print_wifi_at(arg);
+#endif
+
+#if CONFIG_BT
+#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+    /* BT command. */
+    at_printf("BT AT Command:\r\n");
+    print_bt_at(arg);
+#endif
 #endif
 
 #if CONFIG_TRANSPORT

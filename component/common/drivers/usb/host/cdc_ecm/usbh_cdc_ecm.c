@@ -799,7 +799,9 @@ u8 usbh_cdc_ecm_task(void){
 		RTK_LOGE(TAG, "Fail to create sub thread\n");
 		goto delete_bukk_task_exit;
 	}
-	RTK_LOGD(TAG, "All task create success !\n");
+
+	RTK_LOGI(TAG, "All task create success !\n");
+
 	return HAL_OK;
 
 delete_bukk_task_exit:

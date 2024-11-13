@@ -61,6 +61,13 @@ extern void *bt_mesh_device_multiple_profile_evt_queue_handle;
 extern void *bt_mesh_device_multiple_profile_io_queue_handle;
 #endif
 
+#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+#include "ble_transfer_module_app_flags.h"
+#include "ble_transfer_module_at_cmd.h"
+extern void *ble_transfer_evt_queue_handle;
+extern void *ble_transfer_io_queue_handle;
+#endif
+
 #if defined(CONFIG_BT_BREEZE) && CONFIG_BT_BREEZE
 #include "breeze_hal_ble.h"
 #endif
@@ -166,7 +173,8 @@ uint8_t bt_command_type(uint16_t command_type)
 	(defined(CONFIG_BT_SCATTERNET) && CONFIG_BT_SCATTERNET) || \
 	(defined(CONFIG_BT_MESH_CENTRAL) && CONFIG_BT_MESH_CENTRAL) || \
 	(defined(CONFIG_BT_MESH_PERIPHERAL) && CONFIG_BT_MESH_PERIPHERAL) || \
-	(defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET))
+	(defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET) || \
+	(defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE))
 char bt_at_cmd_buf[256] = {0};
 void bt_at_cmd_send_msg(uint16_t subtype, void *arg)
 {
@@ -219,6 +227,15 @@ void bt_at_cmd_send_msg(uint16_t subtype, void *arg)
 		if (os_msg_send(bt_mesh_provisioner_multiple_profile_io_queue_handle, &io_msg, 0) == false) {
 			AT_PRINTK("bt at cmd send msg fail: subtype 0x%x", io_msg.subtype);
 		} else if (os_msg_send(bt_mesh_provisioner_multiple_profile_evt_queue_handle, &event, 0) == false) {
+			AT_PRINTK("bt at cmd send event fail: subtype 0x%x", io_msg.subtype);
+		}
+	}
+#endif
+#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+	if (ble_transfer_evt_queue_handle != NULL && ble_transfer_io_queue_handle != NULL) {
+		if (os_msg_send(ble_transfer_io_queue_handle, &io_msg, 0) == false) {
+			AT_PRINTK("bt at cmd send msg fail: subtype 0x%x", io_msg.subtype);
+		} else if (os_msg_send(ble_transfer_evt_queue_handle, &event, 0) == false) {
 			AT_PRINTK("bt at cmd send event fail: subtype 0x%x", io_msg.subtype);
 		}
 	}
@@ -1730,6 +1747,143 @@ exit:
 }
 #endif
 
+#if ATCMD_VER == ATVER_2
+#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+extern int ble_transfer_app_init(void);
+extern int ble_transfer_app_deinit(void);
+extern int ble_transfer_at_cmd_get_name(int argc, char **argv);
+extern int ble_transfer_at_cmd_set_name(int argc, char **argv);
+extern int ble_transfer_at_cmd_get_uuid(int argc, char **argv);
+extern int ble_transfer_at_cmd_set_uuid(int argc, char **argv);
+extern int ble_transfer_at_cmd_read_val(int argc, char **argv);
+int fATBTDEMO(void *arg)
+{
+	int argc = 0;
+	char *argv[MAX_ARGC] = {0};
+	int ret = 0;
+	memset(bt_at_cmd_buf, 0, 256);
+
+	if (arg) {
+		strncpy(bt_at_cmd_buf, arg, sizeof(bt_at_cmd_buf));
+		argc = parse_param(bt_at_cmd_buf, argv);
+	} 
+
+	if (argc < 3 || argc > 5) {
+		AT_PRINTK("[AT+BTDEMO] Error: Wrong input args number!");
+	}
+
+	if((strcmp("transfer_module", argv[1])) == 0) {
+		if(argc == 3) {
+			if((strcmp("0", argv[2]) == 0) || (strcmp("1", argv[2]) == 0)) {
+				if(strcmp("1", argv[2]) == 0) {
+					ret = ble_transfer_app_init();
+				} else if(strcmp("0", argv[2]) == 0) {
+					ret = ble_transfer_app_deinit();
+				}
+			} else if(strcmp("get_name", argv[2]) == 0) {
+				ret = ble_transfer_at_cmd_get_name(argc - 2, &argv[2]);
+			}
+		} else if(argc == 4) {
+			if(strcmp("set_name", argv[2]) == 0) {
+				ret = ble_transfer_at_cmd_set_name(argc - 2, &argv[2]);
+			}else if(strcmp("get_uuid", argv[2]) == 0) {
+				ret = ble_transfer_at_cmd_get_uuid(argc - 2, &argv[2]);
+			}else {
+				AT_PRINTK("[AT+BTDEMO] Error: Wrong input args number!");
+			}
+		} else if(argc == 5) {
+			if(strcmp("set_uuid", argv[2]) == 0) {
+				ret = ble_transfer_at_cmd_set_uuid(argc - 2, &argv[2]);
+			}else if(strcmp("read_val", argv[2]) == 0) {
+				ret = ble_transfer_at_cmd_read_val(argc - 2, &argv[2]);
+			}else {
+				AT_PRINTK("[AT+BTDEMO] Error: Wrong input args number!");
+				ret = -1;
+			}
+		} 
+	} else {
+		AT_PRINTK("Error: wrong parameter (%s) for transfer module example!\r\n", argv[1]);
+		ret = -1;
+	}
+	if(ret == 0) {
+		at_printf("OK\r\n");
+	}else {
+		at_printf("ERROR\r\n");
+	}
+}
+
+int fATBLEGAP(void *arg)
+{
+	int argc = 0;
+	char *argv[MAX_ARGC] = {0};
+
+	memset(bt_at_cmd_buf, 0, 256);
+
+	if (arg) {
+		strncpy(bt_at_cmd_buf, arg, sizeof(bt_at_cmd_buf));
+		argc = parse_param(bt_at_cmd_buf, argv);
+	} else {
+		return -1;
+	}
+
+	if (argc < 2) {
+		AT_PRINTK("[AT_PRINTK] ERROR: input parameter error!\n\r");
+		return -1;
+	}
+
+	bt_at_cmd_send_msg(BT_ATCMD_BLEGAP, bt_at_cmd_buf);
+	return;
+
+}
+
+int fATBLEGATTC(void *arg)
+{
+	int argc = 0;
+	char *argv[MAX_ARGC] = {0};
+
+	memset(bt_at_cmd_buf, 0, 256);
+
+	if (arg) {
+		strncpy(bt_at_cmd_buf, arg, sizeof(bt_at_cmd_buf));
+		argc = parse_param(bt_at_cmd_buf, argv);
+	} else {
+		return -1;
+	}
+
+	if (argc < 2) {
+		AT_PRINTK("[AT_PRINTK] ERROR: input parameter error!\n\r");
+		return -1;
+	}
+
+	bt_at_cmd_send_msg(BT_ATCMD_BLEGATTC, bt_at_cmd_buf);
+	return;
+}
+
+int fATBLEGATTS(void *arg)
+{
+	int argc = 0;
+	char *argv[MAX_ARGC] = {0};
+
+	memset(bt_at_cmd_buf, 0, 256);
+
+	if (arg) {
+		strncpy(bt_at_cmd_buf, arg, sizeof(bt_at_cmd_buf));
+		argc = parse_param(bt_at_cmd_buf, argv);
+	} else {
+		return -1;
+	}
+
+	if (argc < 2) {
+		AT_PRINTK("[AT_PRINTK] ERROR: input parameter error!\n\r");
+		return -1;
+	}
+
+	bt_at_cmd_send_msg(BT_ATCMD_BLEGATTS, bt_at_cmd_buf);
+	return;
+}
+#endif
+#endif
+
 void fATBV(void *arg)
 {
 	bool ret;
@@ -1755,6 +1909,7 @@ void fATBV(void *arg)
 }
 
 log_item_t at_bt_items[ ] = {
+#if ATCMD_VER == ATVER_1
 #if ((defined(CONFIG_BT_CENTRAL) && CONFIG_BT_CENTRAL) || \
 	(defined(CONFIG_BT_MESH_CENTRAL) && CONFIG_BT_MESH_CENTRAL) || \
 	(defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET))
@@ -1829,12 +1984,35 @@ log_item_t at_bt_items[ ] = {
 	{"ATBm", fATBm, {NULL, NULL}}, // Start/stop BLE mesh
 #endif
 	{"ATBV", fATBV, {NULL, NULL}}, // Get BT stack version
+#elif ATCMD_VER == ATVER_2
+#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+	{"+BTDEMO", fATBTDEMO, {NULL, NULL}},
+	{"+BLEGAP", fATBLEGAP, {NULL, NULL}},
+	{"+BLEGATTC", fATBLEGATTC, {NULL, NULL}},
+	{"+BLEGATTS", fATBLEGATTS, {NULL, NULL}},
+#endif
+#endif
 };
 
 void at_bt_init(void)
 {
 	log_service_add_table(at_bt_items, sizeof(at_bt_items) / sizeof(at_bt_items[0]));
 }
+
+#if ATCMD_VER == ATVER_2
+#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+void print_bt_at(void *arg){
+	int index;
+	int cmd_len = 0;
+
+	cmd_len = sizeof(at_bt_items)/sizeof(at_bt_items[0]);
+	for(index = 0; index < cmd_len; index++)
+	{
+		at_printf("AT%s\r\n", at_bt_items[index].log_cmd);
+	}
+}
+#endif
+#endif
 
 #if SUPPORT_LOG_SERVICE
 log_module_init(at_bt_init);

@@ -102,5 +102,9 @@ extern u8*	rtw_calloc(u32 nelements, u32 elmentSize);
 #define realloc			pvPortReAlloc
 #define calloc			rtw_calloc
 
+/* For Matter */
+#if defined(CHIP_PROJECT) && CHIP_PROJECT
+#include "platform_stdlib_matter.h"
+#endif /* CHIP_PROJECT */
 
 #endif // PLATFORM_STDLIB_8721D_H

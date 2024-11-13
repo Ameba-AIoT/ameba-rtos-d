@@ -91,6 +91,22 @@ T_GAP_CAUSE gcs_by_uuid_srv_discovery(uint8_t conn_id, uint16_t uuid16)
     return cause;
 }
 
+T_GAP_CAUSE gcs_include_srv_discovery(uint8_t conn_id, uint16_t start_handle, uint16_t end_handle)
+{
+    T_GAP_CAUSE cause;
+    cause = client_relationship_discovery(conn_id, gcs_cl_id, start_handle, end_handle);
+    if (cause != GAP_CAUSE_SUCCESS)
+    {
+        APP_PRINT_ERROR4("gcs_include_srv_discovery: failed, conn_id %d, cause %d, start_handle 0x%x, end_handle 0x%x",
+                         conn_id, cause, start_handle, end_handle);
+    }
+    else
+    {
+        gcs_table[conn_id].discov_type = GCS_INCL_SRV_DISCOV;
+    }
+    return cause;
+}
+
 T_GAP_CAUSE gcs_all_char_discovery(uint8_t conn_id, uint16_t start_handle, uint16_t end_handle)
 {
     T_GAP_CAUSE cause;

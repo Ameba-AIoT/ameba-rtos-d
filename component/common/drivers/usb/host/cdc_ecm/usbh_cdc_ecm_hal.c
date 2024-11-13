@@ -39,7 +39,7 @@
 #pragma pack(1)
 typedef struct {
 	usb_report_usbdata			report_data;  			//usb rx callback function
-	usb_appx_report 			appx_report;
+	usbh_cdc_ecm_priv_data_t	*priv_handle;
 
 	volatile u8 				send_success;			//usb tx send flag
 	volatile u8 				cdc_ecm_is_ready;		//ecm attached status
@@ -67,7 +67,7 @@ static u8 usbh_cdc_ecm_get_sendflag(void);
 static u8 usbh_cdc_ecm_set_sendflag(u8 flag);
 static u8 usbh_cdc_ecm_class_init(void);
 static u8 usbh_cdc_ecm_class_deinit(void);
-static u8 usbh_cdc_ecm_do_sub_init(usb_report_usbdata ecm_cb,usb_appx_report appx_cb);
+static u8 usbh_cdc_ecm_do_sub_init(usb_report_usbdata ecm_cb,usbh_cdc_ecm_priv_data_t *priv);
 static u8 usbh_cdc_ecm_do_sub_deinit(void);
 
 /* Private variables ---------------------------------------------------------*/
@@ -222,7 +222,7 @@ static void usbh_cdc_ecm_hotplug_thread(void *param)
 		usb_os_sleep_ms(1000);
 		RTK_LOGI(TAG, "Free heap size: 0x%x\n", xPortGetFreeHeapSize());
 
-		ret = usbh_cdc_ecm_do_sub_init(usbh_cdc_ecm_host_user.report_data,usbh_cdc_ecm_host_user.appx_report);
+		ret = usbh_cdc_ecm_do_sub_init(usbh_cdc_ecm_host_user.report_data,usbh_cdc_ecm_host_user.priv_handle);
 		if (ret != 0) {
 			RTK_LOGE(TAG, "Fail to init USB host controller: %d\n", ret);
 			break;
@@ -311,15 +311,17 @@ static u8 usbh_cdc_ecm_do_sub_deinit(void)
 	usbh_cdc_ecm_host_user.ecm_init_success = 0;
 	return usbh_cdc_ecm_class_deinit();
 }
-static u8 usbh_cdc_ecm_do_sub_init(usb_report_usbdata ecm_cb,usb_appx_report appx_cb)
+static u8 usbh_cdc_ecm_do_sub_init(usb_report_usbdata ecm_cb,usbh_cdc_ecm_priv_data_t *priv)
 {
 	int status;
 	struct task_struct task;
 
 	usbh_cdc_ecm_host_user.report_data = ecm_cb ;
-	usbh_cdc_ecm_host_user.appx_report = appx_cb ;
+	usbh_cdc_ecm_host_user.priv_handle = priv ;
 
- 	usbh_cdc_ecm_appx_doinit(appx_cb);
+	if(priv != NULL){
+ 		usbh_cdc_ecm_appx_doinit(priv);
+	}
 
 	RTK_LOGI(TAG, "USB host init...\n");
 	if (0 == usbh_cdc_ecm_host_user.ecm_init_success) {
@@ -360,7 +362,7 @@ u8 usbh_cdc_ecm_do_deinit(void)//todo destory all usb task
   * @param  appx_cb: at port rx data callback
   * @retval status 0 means success else fail 
   */
-u8 usbh_cdc_ecm_do_init(usb_report_usbdata ecm_cb,usb_appx_report appx_cb)
+u8 usbh_cdc_ecm_do_init(usb_report_usbdata ecm_cb,usbh_cdc_ecm_priv_data_t *priv)
 {
 	rtw_init_sema(&cdc_ecm_attach_sema, 0);
 	rtw_init_sema(&cdc_ecm_detach_sema, 0);
@@ -368,7 +370,7 @@ u8 usbh_cdc_ecm_do_init(usb_report_usbdata ecm_cb,usb_appx_report appx_cb)
 #if CONFIG_USBH_CDC_ECM_HOT_PLUG_TEST
 	usbh_cdc_ecm_create_hotplug_task();
 #endif
-	return usbh_cdc_ecm_do_sub_init(ecm_cb,appx_cb);
+	return usbh_cdc_ecm_do_sub_init(ecm_cb,priv);
 }
 /**
   * @brief  get the max packet for ecm rx
@@ -420,7 +422,7 @@ u8 usbh_cdc_ecm_get_connect_status(void)//1 up
 	ret1 = usbh_cdc_ecm_host_user.cdc_ecm_is_ready;
 	ret2 = usbh_cdc_ecm_host_user.ecm_hw_connect;
 	ret =  ret1 && ret2;
-	//RTK_LOGD(TAG, "Status(%d-%d/%d)\n",ret1,ret2,ret);
+	//RTK_LOGI(TAG, "Status(%d-%d/%d)\n",ret1,ret2,ret);
 	if(usbh_cdc_ecm_get_device_vid() == USB_DEFAULT_VID){
 		return ret;
 	}

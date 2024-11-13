@@ -29,6 +29,10 @@ write_reconnect_ptr p_write_reconnect_ptr;
 #if defined(CONFIG_FAST_DHCP) && CONFIG_FAST_DHCP
 uint32_t offer_ip = 0;
 #endif
+#if CONFIG_ENABLE_WPS
+extern char wps_profile_ssid[33];
+extern char wps_profile_password[65];
+#endif
 #define WIFI_RETRYCOUNT 5
 int wifi_retry_connect = 0;
 /*
@@ -93,6 +97,9 @@ int wlan_init_done_callback(void)
 
 #if CONFIG_LWIP_LAYER
 	netif_set_up(&xnetif[0]);
+#if LWIP_IPV6
+	netif_create_ip6_linklocal_address(&xnetif[0], 1);
+#endif /* LWIP_IPV6 */
 #endif
 
 #if CONFIG_AUTO_RECONNECT
@@ -148,8 +155,15 @@ WIFI_RETRY_LOOP:
 				wifi.password_len = strlen((char*)psk_passphrase);
 				wifi.key_id = atoi((const char *)key_id);
 				break;
+			case RTW_SECURITY_WPA_AES_PSK:
 			case RTW_SECURITY_WPA_TKIP_PSK:
+			case RTW_SECURITY_WPA_MIXED_PSK:
 			case RTW_SECURITY_WPA2_AES_PSK:
+			case RTW_SECURITY_WPA2_TKIP_PSK:
+			case RTW_SECURITY_WPA2_MIXED_PSK:
+			case RTW_SECURITY_WPA_WPA2_AES_PSK:
+			case RTW_SECURITY_WPA_WPA2_TKIP_PSK:
+			case RTW_SECURITY_WPA_WPA2_MIXED_PSK:
 #ifdef CONFIG_SAE_SUPPORT
 			case RTW_SECURITY_WPA3_AES_PSK:
 			case RTW_SECURITY_WPA2_WPA3_MIXED:
@@ -165,6 +179,17 @@ WIFI_RETRY_LOOP:
 		offer_ip = data->offer_ip;
 #endif
 
+#if defined(CONFIG_ENABLE_WPS) && (CONFIG_ENABLE_WPS==1)
+		if(data->is_wps_ap == 1){
+			wext_set_support_wpa3(DISABLE);
+			if(wifi_retry_connect == WIFI_RETRYCOUNT){
+				memset(wps_profile_ssid,0,33);
+				memset(wps_profile_password,0,65);
+				strncpy(wps_profile_ssid, (char*)wifi.ssid.val, wifi.ssid.len);
+				strncpy(wps_profile_password, (char*)wifi.password, wifi.password_len);
+			}
+		}
+#endif
 		ret = wifi_connect((char*)wifi.ssid.val, wifi.security_type, (char*)wifi.password, wifi.ssid.len,
 			wifi.password_len, wifi.key_id, NULL);
 		if (ret != RTW_SUCCESS) {
@@ -191,6 +216,11 @@ WIFI_RETRY_LOOP:
 			LwIP_DHCP(0, DHCP_START);
 		}
 
+#if defined(CONFIG_ENABLE_WPS) && (CONFIG_ENABLE_WPS==1)
+		if(data->is_wps_ap == 1){
+			wext_set_support_wpa3(ENABLE);
+		}
+#endif
 		free(data);
 	}
 

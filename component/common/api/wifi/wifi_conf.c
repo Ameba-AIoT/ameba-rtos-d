@@ -100,6 +100,12 @@ struct rtw_connection_info sta_conn_status;
 
 char read_country_code[2] = {0};
 char default_country_code[2] = "US";
+
+#if CONFIG_ENABLE_WPS
+char wps_profile_ssid[33]={'\0'};
+char wps_profile_password[65]={'\0'};
+#endif
+
 /******************************************************
  *               Variables Definitions
  ******************************************************/
@@ -761,11 +767,16 @@ void restore_wifi_info_to_flash(void)
 			    rtw_memcpy(psk_passphrase[index], setting.password, sizeof(psk_passphrase[index]));
 			    wifi_data_to_flash.security_type = RTW_SECURITY_WEP_PSK;
 			    break;
+			case RTW_SECURITY_WPA_AES_PSK:
 			case RTW_SECURITY_WPA_TKIP_PSK:
-				wifi_data_to_flash.security_type = RTW_SECURITY_WPA_TKIP_PSK;
-                break;
+			case RTW_SECURITY_WPA_MIXED_PSK:
 			case RTW_SECURITY_WPA2_AES_PSK:
-				wifi_data_to_flash.security_type = RTW_SECURITY_WPA2_AES_PSK;
+			case RTW_SECURITY_WPA2_TKIP_PSK:
+			case RTW_SECURITY_WPA2_MIXED_PSK:
+			case RTW_SECURITY_WPA_WPA2_AES_PSK:
+			case RTW_SECURITY_WPA_WPA2_TKIP_PSK:
+			case RTW_SECURITY_WPA_WPA2_MIXED_PSK:
+				 wifi_data_to_flash.security_type = setting.security_type;
 			    break;
 #ifdef CONFIG_SAE_SUPPORT
 			case RTW_SECURITY_WPA3_AES_PSK:
@@ -792,6 +803,15 @@ void restore_wifi_info_to_flash(void)
 		
 		memcpy(wifi_data_to_flash.wpa_global_PSK, wpa_global_PSK[index], sizeof(wifi_data_to_flash.wpa_global_PSK));
 		memcpy(&(wifi_data_to_flash.channel), &channel, 4);
+
+#if defined(CONFIG_ENABLE_WPS) && CONFIG_ENABLE_WPS
+	if((strncmp(wps_profile_ssid, (char const*)setting.ssid, strlen((char const*)setting.ssid)) == 0) &&
+		(strncmp(wps_profile_password, (char const*)setting.password, strlen((char const*)setting.password)) == 0)){
+		wifi_data_to_flash.is_wps_ap = 1;
+	}else{
+		wifi_data_to_flash.is_wps_ap = 0;
+	}
+#endif
 
 #if !defined(CONFIG_FAST_DHCP) || (CONFIG_FAST_DHCP == 0) || CONFIG_EXAMPLE_WIFI_ROAMING_PLUS
 		//for wifi_roaming in FIT_APs, there is no DHCP needed, but we want to store FIT AP channels into flash for specific scan
@@ -1132,6 +1152,11 @@ int wifi_connect(
 	//TODO
 #else
 	netif_set_link_up(&xnetif[0]);
+#if defined(CONFIG_MATTER) && CONFIG_MATTER
+#if LWIP_IPV6 && (!defined(LWIP_IPV6_DHCP6) || (LWIP_IPV6_DHCP6 == 0))
+	matter_check_valid_ipv6();
+#endif
+#endif /* CONFIG_MATTER */
 #endif
 #endif
 
@@ -1759,6 +1784,8 @@ _WEAK void wifi_set_mib(void)
 {
 	// adaptivity
 	wext_set_adaptivity(RTW_ADAPTIVITY_DISABLE);
+	// auto set adaptivity
+	wext_auto_set_adaptivity(DISABLE);
 	//trp tis
 	wext_set_trp_tis(RTW_TRP_TIS_DISABLE);
 	wext_set_anti_interference(DISABLE);
@@ -1874,20 +1901,23 @@ int wifi_on(rtw_mode_t mode)
 		timeout --;
 	}
 
-	#if CONFIG_LWIP_LAYER
-	#if defined(CONFIG_MBED_ENABLED) || defined(CONFIG_PLATFOMR_CUSTOMER_RTOS)
+#if CONFIG_LWIP_LAYER
+#if defined(CONFIG_MBED_ENABLED) || defined(CONFIG_PLATFOMR_CUSTOMER_RTOS)
 	//TODO
-	#else
+#else
 	netif_set_up(&xnetif[0]);
+#if LWIP_IPV6
+	netif_create_ip6_linklocal_address(&xnetif[0], 1);
+#endif
 	if(mode == RTW_MODE_AP) 
 		netif_set_link_up(&xnetif[0]);
 	else	 if(mode == RTW_MODE_STA_AP) {
 		netif_set_up(&xnetif[1]);		
 		netif_set_link_up(&xnetif[1]);
 	}
-	#endif
-	#endif
-	
+#endif
+#endif
+
 #if CONFIG_INIC_EN
 	inic_start();
 #endif
@@ -3689,11 +3719,6 @@ struct wifi_autoreconnect_param {
 	int key_id;
 };
 
-#if CONFIG_ENABLE_WPS
-char wps_profile_ssid[33]={'\0'};
-char wps_profile_password[65]={'\0'};
-#endif
-
 #if WIFI_LOGO_CERTIFICATION_CONFIG
 extern u8 use_static_ip;
 extern struct ip_addr g_ipaddr;
@@ -4450,6 +4475,24 @@ int wifi_get_txrpt_statistic(const char *ifname, rtw_fw_txrpt_stats_t *txrpt_sta
 	return rltk_wlan_txrpt_statistic(ifname, txrpt_stats);
 }
 
+void wifi_set_channel_plan_by_country_code(unsigned char* country_code)
+{
+	int map_size = sizeof(country_map) / sizeof(country_map[0]);
+	int country_code_found = 0;
+
+	for (int i = 0; i < map_size; i++) {
+		if (memcmp(country_map[i].country_code, country_code, sizeof(read_country_code)) == 0) {
+			country_code_found = 1;
+			wifi_set_country(country_map[i].rtw_country_code);
+		}
+	}
+	if (country_code_found == 0){
+		printf("\n\rCountry is not found in the table");
+		wifi_set_country(RTW_COUNTRY_RTK_DEFAULT);
+	}
+
+}
+
 void wifi_get_country_code(unsigned char* country_code_get)
 {
 	wifi_scan_networks_with_extended_countryinfo();
@@ -4559,6 +4602,18 @@ void wifi_return_country_code(CountryCodeCount *country_code_counts, int *num_co
 	}
 	else{
 		memcpy(read_country_code, country_code_counts[country_index].country_code, sizeof(read_country_code));
+	}
+}
+
+int wifi_get_sta_security_type(void)
+{
+	if(join_user_data != NULL)
+	{
+		return join_user_data->network_info.security_type;
+	}
+	else
+	{
+		return -1;
 	}
 }
 

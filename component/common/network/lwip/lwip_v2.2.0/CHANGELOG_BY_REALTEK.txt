@@ -1,0 +1,5 @@
+
+Modifications made by Realtek to patch lwip_v2.2.0 on Ameba's SDK which is originally based on lwip_v2.0.2
+
+2024-09-01
+    * Add Realtek modification in multiple files. (Search by "//Realtek add" to find the modification)

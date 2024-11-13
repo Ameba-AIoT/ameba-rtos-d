@@ -3826,6 +3826,52 @@ static void prvCheckTasksWaitingTermination( void )
 #endif /* INCLUDE_uxTaskGetStackHighWaterMark */
 /*-----------------------------------------------------------*/
 
+#if ( INCLUDE_uxTaskGetStackSize == 1 )
+
+	uint32_t uxTaskGetStackSize( TaskHandle_t xTask )
+	{
+		uint32_t uxReturn;
+		TCB_t *pxTCB;
+
+		if( xTask != NULL )
+		{
+			pxTCB = ( TCB_t * ) xTask;
+			uxReturn = (pxTCB->pxEndOfStack - pxTCB->pxStack) * sizeof(StackType_t);
+		}
+		else
+		{
+			uxReturn = 0;
+		}
+
+		return uxReturn;
+	}
+
+#endif /* INCLUDE_uxTaskGetStackSize */
+/*-----------------------------------------------------------*/
+
+#if ( INCLUDE_uxTaskGetFreeStackSize == 1 )
+
+	uint32_t uxTaskGetFreeStackSize( TaskHandle_t xTask )
+	{
+		uint32_t uxReturn;
+		TCB_t *pxTCB;
+
+		if( xTask != NULL )
+		{
+			pxTCB = ( TCB_t * ) xTask;
+			uxReturn = (pxTCB->pxTopOfStack - pxTCB->pxStack) * sizeof(StackType_t);
+		}
+		else
+		{
+			uxReturn = 0;
+		}
+
+		return uxReturn;
+	}
+
+#endif /* INCLUDE_uxTaskGetFreeStackSize */
+/*-----------------------------------------------------------*/
+
 #if ( INCLUDE_vTaskDelete == 1 )
 
 	static void prvDeleteTCB( TCB_t *pxTCB )

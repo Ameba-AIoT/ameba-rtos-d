@@ -7,7 +7,11 @@ IFLAGS               += -I$(BASEDIR)/component/common/network/libcoap/include
 #*****************************************************************************#
 #                               VARIABLES	                              #
 #*****************************************************************************#
+ifeq ($(CONFIG_MATTER_EN),y)
+LWIPDIR = $(BASEDIR)/component/common/network/lwip/lwip_v2.1.2
+else
 LWIPDIR = $(BASEDIR)/component/common/network/lwip/lwip_v2.0.2
+endif
 NETWORK = $(BASEDIR)/component/common/network
 WLANDRV = $(BASEDIR)/component/common/drivers/wlan/realtek
 
@@ -73,9 +77,11 @@ all: CORE_TARGETS COPY_RAM_OBJS
 #*****************************************************************************#
 CORE_TARGETS: $(OBJS)
 
+ifneq ($(CONFIG_MATTER_EN),y)
 %.o:%.c
 	$(CC) $(GLOBAL_CFLAGS) $(MODULE_IFLAGS) $<  -o $@
 	$(FROMELF) --prefix-sections .image2.net.ram $@
+endif
 	
 #*****************************************************************************#
 #              CLEAN GENERATED FILES                                          #

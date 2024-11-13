@@ -267,7 +267,8 @@ T_APP_RESULT  simp_ble_service_attr_read_cb(uint8_t conn_id, T_SERVER_ID service
         {
             TSIMP_CALLBACK_DATA callback_data;
             callback_data.msg_type = SERVICE_CALLBACK_TYPE_READ_CHAR_VALUE;
-            callback_data.msg_data.read_value_index = SIMP_READ_V1;
+            callback_data.msg_data.read.read_value_index = SIMP_READ_V1;
+            callback_data.msg_data.read.read_offset = offset;
             callback_data.conn_id = conn_id;
             if (pfn_simp_ble_service_cb)
             {
@@ -277,12 +278,10 @@ T_APP_RESULT  simp_ble_service_attr_read_cb(uint8_t conn_id, T_SERVER_ID service
             *p_length = simple_char_read_len;
         }
         break;
-
     }
 
     return (cause);
 }
-
 
 void simple_write_post_callback(uint8_t conn_id, T_SERVER_ID service_id, uint16_t attrib_index,
                                 uint16_t length, uint8_t *p_value)
@@ -291,6 +290,7 @@ void simple_write_post_callback(uint8_t conn_id, T_SERVER_ID service_id, uint16_
     APP_PRINT_INFO4("simple_write_post_callback: conn_id %d, service_id %d, attrib_index 0x%x, length %d",
                     conn_id, service_id, attrib_index, length);
 }
+
 /**
  * @brief write characteristic data from service.
  *

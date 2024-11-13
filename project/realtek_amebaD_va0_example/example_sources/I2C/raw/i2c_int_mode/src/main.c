@@ -53,6 +53,48 @@ i2c_ts i2cmaster;
 i2c_ts i2cslave;
 u32 length = 100;
 
+void i2c_slave_rx_check(void)
+{
+
+	int i2clocalcnt;
+	int result = 0;
+	
+	printf("check slave received data>>>\n");
+	for (i2clocalcnt = 0; i2clocalcnt < I2C_DATA_LENGTH; i2clocalcnt+=2) {
+		//DBG_8195A("i2c data: %02x \t %02x\n",i2cdatadst[i2clocalcnt],i2cdatadst[i2clocalcnt+1]);
+	}
+	//HalDelayUs(5000);
+	// verify result
+	result = 1;
+	if (i2cdatasrc[0] == i2cdatadst[0]) {
+		if (i2cdatasrc[0] != i2cdatadst[0]) {
+			result = 0;
+		}
+	} else if (i2cdatasrc[1] == i2cdatadst[0]) {
+		for (i2clocalcnt = 1; i2clocalcnt < I2C_DATA_LENGTH; i2clocalcnt++) {
+			if (i2cdatasrc[i2clocalcnt] != i2cdatadst[i2clocalcnt -1]) {
+				printf("idx:%d, src:%x, dst:%x\n", i2clocalcnt, i2cdatasrc[i2clocalcnt], i2cdatadst[i2clocalcnt]);
+				for (i2clocalcnt = 0; i2clocalcnt < I2C_DATA_LENGTH; i2clocalcnt+=2) {
+					printf("i2c data: %02x \t %02x\n",i2cdatadst[i2clocalcnt],i2cdatadst[i2clocalcnt+1]);
+				}
+				result = 0;
+				break;
+			}
+		}
+	} else {
+		for (i2clocalcnt = 0; i2clocalcnt < I2C_DATA_LENGTH; i2clocalcnt++) {
+			if (i2cdatasrc[i2clocalcnt] != i2cdatadst[i2clocalcnt]) {
+				printf("idx:%d, src:%x, dst:%x\n", i2clocalcnt, i2cdatasrc[i2clocalcnt], i2cdatadst[i2clocalcnt]);
+				result = 0;
+				break;
+			}
+		}
+	}
+
+	printf("\r\nSlave receive: Result is %s\r\n", (result) ? "success" : "fail");
+	_memset(&i2cdatadst[0], 0x00, I2C_DATA_LENGTH);
+}
+
 static VOID I2CISRHandleTxEmpty(IN i2c_ts *obj)
 {
 	u8 I2CStop = 0;
@@ -151,6 +193,7 @@ static VOID I2CISRHandleRxFull(IN i2c_ts *obj)
 		/*I2C Disable RX Related Interrupts*/
 		I2C_INTConfig(obj->I2Cint.I2Cx, (BIT_IC_INTR_MASK_M_RX_FULL | BIT_IC_INTR_MASK_M_RX_OVER |
 			BIT_IC_INTR_MASK_M_RX_UNDER), DISABLE);
+		i2c_slave_rx_check();
 		}
 #endif
 }

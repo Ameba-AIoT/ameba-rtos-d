@@ -33,6 +33,9 @@ struct wlan_fast_reconnect {
 #if ATCMD_VER == ATVER_2
 	uint32_t    enable;
 #endif
+#if defined(CONFIG_ENABLE_WPS) && CONFIG_ENABLE_WPS
+	unsigned char is_wps_ap;
+#endif
 };
 
 

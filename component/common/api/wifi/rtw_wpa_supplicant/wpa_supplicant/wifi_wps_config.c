@@ -360,10 +360,8 @@ static void wps_config_wifi_setting(rtw_network_info_t *wifi, struct dev_credent
 	//printf("\r\nrelease wps_reconnect_semaphore");			
 }
 
-#if defined(CONFIG_AUTO_RECONNECT) && CONFIG_AUTO_RECONNECT
 extern char wps_profile_ssid[33];
 extern char wps_profile_password[65];
-#endif
 
 static int wps_connect_to_AP_by_certificate(rtw_network_info_t *wifi)
 {
@@ -376,6 +374,11 @@ static int wps_connect_to_AP_by_certificate(rtw_network_info_t *wifi)
 	printf("\r\nssid_len = %d\n", wifi->ssid.len);
 	printf("\r\npassword_len = %d\n", wifi->password_len);
 	while (1) {
+		memset(wps_profile_ssid,0,33);
+		memset(wps_profile_password,0,65);
+		strncpy(wps_profile_ssid, (const char *)wifi->ssid.val, wifi->ssid.len);
+		strncpy(wps_profile_password, (const char *)wifi->password, wifi->password_len);
+
 		ret = wifi_connect((char*)wifi->ssid.val,
 						 wifi->security_type,
 						 (char*)wifi->password,
@@ -389,14 +392,11 @@ static int wps_connect_to_AP_by_certificate(rtw_network_info_t *wifi)
 			if(RTW_SUCCESS == wifi_is_connected_to_ap( )){
 				//printf("\r\n[WPS]Ready to tranceive!!\n");
 				wps_check_and_show_connection_info();
-#if defined(CONFIG_AUTO_RECONNECT) && CONFIG_AUTO_RECONNECT
-				memset(wps_profile_ssid,0,33);
-				memset(wps_profile_password,0,65);
-				strncpy(wps_profile_ssid, (const char *)wifi->ssid.val, wifi->ssid.len);
-				strncpy(wps_profile_password, (const char *)wifi->password, wifi->password_len);
-#endif
 				break;
 			}
+		}else{
+			memset(wps_profile_ssid,0,33);
+			memset(wps_profile_password,0,65);
 		}
 		if (retry_count == 0) {
 			printf("\r\n[WPS]Join bss failed\n");
