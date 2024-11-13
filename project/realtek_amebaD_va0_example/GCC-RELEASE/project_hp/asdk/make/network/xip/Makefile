@@ -8,7 +8,12 @@ IFLAGS               += -I$(BASEDIR)/component/common/network/libcoap/include
 #*****************************************************************************#
 #                               VARIABLES	                              #
 #*****************************************************************************#
-LWIPDIR = $(BASEDIR)/component/common/network/lwip/lwip_v2.0.2
+ifeq ($(CONFIG_MATTER_EN), y)
+LWIP_VERSION := lwip_v2.1.2
+else
+LWIP_VERSION := lwip_v2.0.2
+endif
+LWIPDIR = $(BASEDIR)/component/common/network/lwip/$(LWIP_VERSION)
 NETWORK = $(BASEDIR)/component/common/network
 
 #*****************************************************************************#
@@ -40,6 +45,10 @@ OBJS +=	\
 		$(NETWORK)/coap/sn_coap_header_check.o\
 		$(NETWORK)/coap/sn_coap_parser.o\
 		$(NETWORK)/coap/sn_coap_protocol.o
+
+ifeq ($(LWIP_VERSION), lwip_v2.2.0)
+OBJS += $(LWIPDIR)/src/core/ipv4/acd.o
+endif
 
 
 #ifeq ($(CONFIG_HIGH_TP),y)

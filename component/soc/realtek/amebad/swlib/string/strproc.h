@@ -12,6 +12,7 @@
 
 #include <stddef.h> /* for size_t */
 #include <stdarg.h>
+#include <ctype.h>
 #include "platform_autoconf.h"
 #include "basic_types.h"
 

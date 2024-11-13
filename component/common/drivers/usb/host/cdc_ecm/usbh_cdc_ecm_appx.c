@@ -34,6 +34,39 @@ static const char *TAG = "ECM_APPX";
 
 static usbh_cdc_ecm_appx_t appx_cmd;
 
+static void usbh_cdc_ecm_set_dongle_mac(u8 *mac)
+{
+	usbh_cdc_ecm_appx_t *atcmd = &appx_cmd;
+
+	if(NULL == mac){
+		RTK_LOGE(TAG, "Param error,mac is NULL\n");
+		return ;
+	}
+
+	memcpy((void *)&(atcmd->mac[0]), (void *)mac, 6);
+	atcmd->mac_src_type = CDC_ECM_MAC_UPPER_LAYER_SET;
+}
+
+static void usbh_cdc_ecm_set_dongle_led_array(u16 *led, u8 len)
+{
+	usbh_cdc_ecm_appx_t *atcmd = &appx_cmd;
+
+	if(led == NULL || len == 0){
+		RTK_LOGE(TAG, "Param error,led is NULL or len %ld\n", (u32)len);
+		return ;
+	}
+
+	if(atcmd->led_array){ 
+		usb_os_mfree(atcmd->led_array); 
+		atcmd->led_array = NULL;
+	}
+
+	atcmd->led_array = (u16 *)usb_os_malloc(len*sizeof(u16));
+	memcpy((void *)atcmd->led_array, (void *)led, len*sizeof(u16));
+
+	atcmd->led_cnt = len;
+}
+
 /**
   * @brief  Start to receive bulk in data
   * @param  none
@@ -69,7 +102,9 @@ static void usbh_cdc_ecm_appx_rx_thread(void *param)
 			usb_os_sleep_ms(1);
 		}
 	}while(appx_cmd.task_flag);
+
 	RTK_LOGD(TAG, "Rx task exit!\n");
+
 	rtw_thread_exit();
 }
 
@@ -159,22 +194,124 @@ static u8 usbh_cdc_ecm_ep_init(usb_host_t *host,usbh_ep_desc_t *ep_desc,usbh_cdc
 static u8 usbh_cdc_ecm_get_mac_str(usb_host_t *host)
 {
 	u8 i;
+	u8 mac_is_valid = 0;
 	u8 status = HAL_OK;
 	usbh_cdc_ecm_appx_t *atcmd = &appx_cmd;
-	/*Issue the get line coding request*/
-	status = usbh_cdc_acm_process_get_string(host,atcmd->mac_string,CDC_ECM_MAC_STRING_LEN,atcmd->iMACAddressStringId);
-	if (status == HAL_OK) {
-		for(i = 0; i< 6;i++)
-		{
-			atcmd->mac[i] = usbh_cdc_ecm_hex_to_char(atcmd->mac_string[2+4*i])*16 + usbh_cdc_ecm_hex_to_char(atcmd->mac_string[2+4*i+2]) ;
-		}
-		atcmd->mac_ready = 1;
 
-		RTK_LOGD(TAG, "MAC:%02x:%02x:%02x:%02x:%02x:%02x\n", atcmd->mac[0], atcmd->mac[1], atcmd->mac[2], atcmd->mac[3], atcmd->mac[4], atcmd->mac[5]);
+	if(atcmd->mac_src_type == CDC_ECM_MAC_UPPER_LAYER_SET){
+		status = HAL_OK;
+		RTK_LOGI(TAG, "Upper set mac[%02x %02x %02x %02x %02x %02x]\n", atcmd->mac[0], atcmd->mac[1], atcmd->mac[2], atcmd->mac[3], atcmd->mac[4], atcmd->mac[5]);
+	} else {
+		status = usbh_cdc_acm_process_get_string(host, atcmd->dongle_ctrl_buf, CDC_ECM_MAC_STRING_LEN, atcmd->iMACAddressStringId);	
+		atcmd->mac_src_type = CDC_ECM_MAC_DONGLE_SUPPLY;
 	}
+
+	if (status == HAL_OK) {
+		if(atcmd->mac_src_type == CDC_ECM_MAC_DONGLE_SUPPLY){
+			for (i = 0; i < 6; i++) {
+				atcmd->mac[i] = usbh_cdc_ecm_hex_to_char(atcmd->dongle_ctrl_buf[2 + 4 * i]) * 16 + usbh_cdc_ecm_hex_to_char(atcmd->dongle_ctrl_buf[2 + 4 * i + 2]);
+				if(atcmd->mac[i]){
+					mac_is_valid = 1;
+				}
+			}
+			if(mac_is_valid == 0){
+				rtw_get_random_bytes(atcmd->mac,CDC_ECM_MAC_STR_LEN);
+				RTK_LOGI(TAG, "Random mac[%02x %02x %02x %02x %02x %02x]\n", atcmd->mac[0], atcmd->mac[1], atcmd->mac[2], atcmd->mac[3], atcmd->mac[4], atcmd->mac[5]);
+				atcmd->mac_src_type = CDC_ECM_MAC_RANDOM_SET;
+			} else {
+				RTK_LOGI(TAG, "Dongle mac[%02x %02x %02x %02x %02x %02x]\n", atcmd->mac[0], atcmd->mac[1], atcmd->mac[2], atcmd->mac[3], atcmd->mac[4], atcmd->mac[5]);
+				atcmd->mac_valid = 1;
+			}
+		}
+	} 
 
 	return status;
 }
+
+/******************Set MAC for 8152 *****************************/
+/**
+  * @brief  Set 8152 mac flow ctrl
+  * @param  host: Host handle
+  * @retval Status
+  */
+static int usbh_cdc_ecm_process_mac_get_lock(usb_host_t *host)
+{
+	usbh_setup_req_t setup;
+
+	setup.b.bmRequestType = USB_D2H | USB_REQ_TYPE_VENDOR | USB_REQ_RECIPIENT_DEVICE;
+	setup.b.bRequest = 0x05;
+	setup.b.wValue = 0xE81C;
+	setup.b.wIndex = 0x010F;
+	setup.b.wLength = 4;
+
+	return usbh_ctrl_request(host, &setup, appx_cmd.dongle_ctrl_buf);
+}
+
+static int usbh_cdc_ecm_process_mac_set_dis_lock(usb_host_t *host)
+{
+	usbh_setup_req_t setup;
+
+	setup.b.bmRequestType = 0x40;
+	setup.b.bRequest = 0x05;
+	setup.b.wValue = 0xE81C;
+	setup.b.wIndex = 0x010F;
+	setup.b.wLength = 4;
+	return usbh_ctrl_request(host, &setup, appx_cmd.dongle_ctrl_buf);
+}
+
+static int usbh_cdc_ecm_process_mac_set_mac1(usb_host_t *host)
+{
+	usbh_setup_req_t setup;
+
+	setup.b.bmRequestType = 0x40;
+	setup.b.bRequest = 0x05;
+	setup.b.wValue = 0xC000;
+	setup.b.wIndex = 0x010F;
+	setup.b.wLength = 4;
+	return usbh_ctrl_request(host, &setup, appx_cmd.dongle_ctrl_buf);
+}
+
+static int usbh_cdc_ecm_process_mac_set_mac2(usb_host_t *host)
+{
+	usbh_setup_req_t setup;
+
+	setup.b.bmRequestType = 0x40;
+	setup.b.bRequest = 0x05;
+	setup.b.wValue = 0xC004;
+	setup.b.wIndex = 0x0103;
+	setup.b.wLength = 4;
+	return usbh_ctrl_request(host, &setup, appx_cmd.dongle_ctrl_buf);
+}
+
+static int usbh_cdc_ecm_process_mac_en_lock(usb_host_t *host)
+{
+	usbh_setup_req_t setup;
+
+	setup.b.bmRequestType = 0x40;
+	setup.b.bRequest = 0x05;
+	setup.b.wValue = 0xE81C;
+	setup.b.wIndex = 0x010F;
+	setup.b.wLength = 4;
+	return usbh_ctrl_request(host, &setup, appx_cmd.dongle_ctrl_buf);
+}
+
+/**
+  * @brief  Set led color for 8152
+  * @param  host: Host handle
+  * @retval Status
+  */
+static int usbh_cdc_ecm_process_led_set_ctrl(usb_host_t *host)
+{
+	usbh_setup_req_t setup;
+
+	setup.b.bmRequestType = 0x40;
+	setup.b.bRequest = 0x05;
+	setup.b.wValue = 0xDD90;
+	setup.b.wIndex = 0x0103;
+	setup.b.wLength = 4;
+	return usbh_ctrl_request(host, &setup, appx_cmd.dongle_ctrl_buf);
+}
+
 static u8 usbh_cdc_ecm_appx_setting(usb_host_t *host,u8* next)
 {
 	u8 state = HAL_OK;
@@ -186,18 +323,119 @@ static u8 usbh_cdc_ecm_appx_setting(usb_host_t *host,u8* next)
 	   || (usbh_cdc_ecm_get_ctrl_transfer_owner() != CDC_ECM_CTRL_XFER_OWNER_APPX))
 		return state;
 
-	if(vid == USB_DEFAULT_VID){
+	if(vid == USB_DEFAULT_VID){ //rtk
 		switch (appx_cmd.sub_status) {
 		case CDC_ECM_STATE_GET_MAC_STR:
 			state = usbh_cdc_ecm_get_mac_str(host);
 			if (state == HAL_OK) {
-				appx_cmd.sub_status = CDC_ECM_STATE_AT_SETTING_IDLE;
-				RTK_LOGD(TAG,  "Get MAC success\n");
+				if((appx_cmd.mac_valid == 1) && (appx_cmd.mac_src_type == CDC_ECM_MAC_DONGLE_SUPPLY)){
+					appx_cmd.sub_status = CDC_ECM_STATE_CTRL_LED_COLOR_SET;
+				} else {
+					appx_cmd.sub_status = CDC_ECM_STATE_CTRL_MAC_GET_LOCK;
+				}
 			} else if (state != HAL_BUSY) {
 				RTK_LOGW(TAG,  "Get MAC fail error[%d]\n",state);
 				usb_os_sleep_ms(10);
 			}
 			break;
+
+		case CDC_ECM_STATE_CTRL_MAC_GET_LOCK: //8152 mac
+			if ((pid != 0x8152) || (appx_cmd.mac_src_type == CDC_ECM_MAC_DONGLE_SUPPLY)) {
+				appx_cmd.sub_status++;
+			} else {
+				usb_os_memset(appx_cmd.mac_ctrl_lock, 0, 4);
+				state = usbh_cdc_ecm_process_mac_get_lock(host);
+				if (state == HAL_OK) {
+					usb_os_memcpy(appx_cmd.mac_ctrl_lock, appx_cmd.dongle_ctrl_buf, CDC_ECM_MAC_CTRL_REG_LEN);
+					appx_cmd.sub_status++;
+				} else if (state != HAL_BUSY) {
+					RTK_LOGE(TAG, "Get MAC lock err\n");
+					usb_os_sleep_ms(100);
+				}
+			}
+			break;
+
+		case CDC_ECM_STATE_CTRL_MAC_DISABLE_LOCK: //8152 mac
+			if ((pid != 0x8152) || (appx_cmd.mac_src_type == CDC_ECM_MAC_DONGLE_SUPPLY)) {
+				appx_cmd.sub_status++;
+			} else {
+				appx_cmd.mac_ctrl_lock[0] = 0xD0;
+				usb_os_memcpy(appx_cmd.dongle_ctrl_buf, appx_cmd.mac_ctrl_lock, CDC_ECM_MAC_CTRL_REG_LEN);
+				state = usbh_cdc_ecm_process_mac_set_dis_lock(host);
+				if (state == HAL_OK) {
+					appx_cmd.sub_status++;
+				} else if (state != HAL_BUSY) {
+					RTK_LOGE(TAG, "Dis MAC lock err\n");
+					usb_os_sleep_ms(100);
+				}
+			}
+			break;
+
+		case CDC_ECM_STATE_CTRL_MAC_SET_MAC1: //8152 mac
+			if ((pid != 0x8152) || (appx_cmd.mac_src_type == CDC_ECM_MAC_DONGLE_SUPPLY)) {
+				appx_cmd.sub_status++;
+			} else {
+				usb_os_memcpy(appx_cmd.dongle_ctrl_buf, &(appx_cmd.mac[0]), CDC_ECM_MAC_CTRL_REG_LEN);
+				state = usbh_cdc_ecm_process_mac_set_mac1(host);
+				if (state == HAL_OK) {
+					appx_cmd.sub_status++;
+				} else if (state != HAL_BUSY) {
+					RTK_LOGE(TAG, "Set MAC1 err\n");
+					usb_os_sleep_ms(100);
+				}
+			}
+			break;
+
+		case CDC_ECM_STATE_CTRL_MAC_SET_MAC2: //8152 mac
+			if ((pid != 0x8152) ||  (appx_cmd.mac_src_type == CDC_ECM_MAC_DONGLE_SUPPLY)) {
+				appx_cmd.sub_status++;
+			} else {
+				usb_os_memcpy(appx_cmd.dongle_ctrl_buf, &(appx_cmd.mac[4]), CDC_ECM_MAC_CTRL_REG_LEN);
+				appx_cmd.dongle_ctrl_buf[2]=appx_cmd.dongle_ctrl_buf[3]=0xFF;
+				state = usbh_cdc_ecm_process_mac_set_mac2(host);
+				if (state == HAL_OK) {
+					appx_cmd.sub_status++;
+				} else if (state != HAL_BUSY) {
+					RTK_LOGE(TAG, "Set MAC2 err\n");
+					usb_os_sleep_ms(100);
+				}
+			}
+			break;
+
+		case CDC_ECM_STATE_CTRL_MAC_ENABLE_LOCK: //8152 mac
+			if ((pid != 0x8152) || (appx_cmd.mac_src_type == CDC_ECM_MAC_DONGLE_SUPPLY)) {
+				appx_cmd.sub_status++;
+			} else {
+				appx_cmd.mac_ctrl_lock[0] = 0x10;
+				usb_os_memcpy(appx_cmd.dongle_ctrl_buf, appx_cmd.mac_ctrl_lock, CDC_ECM_MAC_CTRL_REG_LEN);
+				state = usbh_cdc_ecm_process_mac_en_lock(host);
+				if (state == HAL_OK) {
+					appx_cmd.sub_status++;
+					appx_cmd.mac_valid = 1;
+					RTK_LOGI(TAG, "Mac set success\n");
+				} else if (state != HAL_BUSY) {
+					RTK_LOGE(TAG, "En MAC lock err\n");
+					usb_os_sleep_ms(100);
+				}
+			}
+			break;
+
+		case CDC_ECM_STATE_CTRL_LED_COLOR_SET: //8152 led ctrl
+			if ((pid != 0x8152) || (appx_cmd.led_cnt == 0) || (appx_cmd.led_array == NULL)) {
+				appx_cmd.sub_status = CDC_ECM_STATE_AT_SETTING_IDLE;
+			} else {
+				usb_os_memset(appx_cmd.dongle_ctrl_buf, 0xFF, 4);
+				usb_os_memcpy(appx_cmd.dongle_ctrl_buf, (u8 *)&(appx_cmd.led_array[0]), 2);
+				state = usbh_cdc_ecm_process_led_set_ctrl(host);
+				if (state == HAL_OK) {
+					appx_cmd.sub_status = CDC_ECM_STATE_AT_SETTING_IDLE;
+				} else if (state != HAL_BUSY) {
+					RTK_LOGE(TAG, "Set led color err\n");
+					usb_os_sleep_ms(100);
+				}
+			}
+			break;
+
 		default:
 			usbh_cdc_ecm_change_ctrl_transfer_owner();
 			loop = 0 ;
@@ -491,19 +729,45 @@ static u8 usbh_cdc_ecm_parse_get_mac_id(usb_host_t *host)
 /*
 	below is the public apis that called by other file
 */
-u8 usbh_cdc_ecm_appx_doinit(usb_appx_report appx_cb)
+u8 usbh_cdc_ecm_appx_doinit(usbh_cdc_ecm_priv_data_t *priv)
 {
 	usbh_cdc_ecm_appx_t *atcmd = &appx_cmd;
-	atcmd->rx_report = appx_cb ;
-	atcmd->mac_ready = 0;
+
+	if(priv == NULL) {
+		RTK_LOGE(TAG, "Param error\n");
+		return HAL_ERR_PARA;
+	}
+
+	if(priv->mac_value){
+		usbh_cdc_ecm_set_dongle_mac(priv->mac_value);
+	}
+	if((priv->led_array != NULL) && (priv->led_cnt > 0)){
+		usbh_cdc_ecm_set_dongle_led_array(priv->led_array,priv->led_cnt);
+	}
+
+	atcmd->rx_report = priv->appx_cb;
+
+	atcmd->dongle_ctrl_buf = (u8 *)usb_os_malloc(CDC_ECM_MAC_STRING_LEN);
+	if (NULL == atcmd->dongle_ctrl_buf) {
+		RTK_LOGE(TAG, "Alloc mem %d fail\n", CDC_ECM_MAC_STRING_LEN);
+		return HAL_ERR_MEM;
+	}
+
+	atcmd->mac_valid = 0;
 
 	return HAL_OK;
 }
+
 u8 usbh_cdc_ecm_appx_deinit(usb_host_t *host){
 	usbh_cdc_ecm_appx_t *atcmd = &appx_cmd;
 
 	appx_cmd.task_flag = 0;
 	usbh_cdc_ecm_appx_deinit_pipe(host);
+
+	if(atcmd->dongle_ctrl_buf) {
+		usb_os_mfree(atcmd->dongle_ctrl_buf);
+		atcmd->dongle_ctrl_buf = NULL;
+	}
 
 	if(atcmd->report_ep.xfer_buf) {
 		usb_os_mfree(atcmd->report_ep.xfer_buf);
@@ -637,7 +901,7 @@ const u8* usbh_cdc_ecm_process_mac_str(void)
 {
 	u8 i = 0;
 	usbh_cdc_ecm_appx_t *pappx_cmd = &appx_cmd;
-	while(!pappx_cmd->mac_ready && i < 10)
+	while(!pappx_cmd->mac_valid && i < 10)
 	{
 		usb_os_sleep_ms(1000);
 		i++;

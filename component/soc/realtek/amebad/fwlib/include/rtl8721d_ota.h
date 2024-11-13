@@ -147,8 +147,8 @@ void ota_update_free(void *buf);
 #if (SERVER_TYPE == SERVER_LOCAL)
 void ota_platform_reset(void);
 int ota_write_ota2_addr(uint32_t ota_addr);
-u32 ota_get_cur_index(void);
-int  ota_readstream_user(u32 address, u32 len, u8 * data);
+int ota_readstream_user(u32 address, u32 len, u8 * data);
+int ota_writestream_user(u32 address, u32 len, const u8 * data);
 
 u32 recv_file_info_from_server(u8 * Recvbuf, u32 len, int socket);
 u32 recv_ota_file_hdr(u8 * Recvbuf, u32 * len, update_ota_target_hdr * pOtaTgtHdr, int socket);

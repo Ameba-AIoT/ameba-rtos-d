@@ -234,7 +234,7 @@ uint32_t bt_ota_checksum_cal(uint8_t *buf, uint16_t len)
  * @return None
 */
 bool bt_ota_send_indicate(uint8_t conn_id, T_SERVER_ID service_id, T_OTA_CTRL_IND_OPCODE opcode,
-									uint8_t status, uint32_t value)
+							uint8_t status, uint8_t *value, uint8_t val_len)
 {
 	uint8_t *p_data = NULL;
 	uint8_t length = 0;
@@ -243,13 +243,13 @@ bool bt_ota_send_indicate(uint8_t conn_id, T_SERVER_ID service_id, T_OTA_CTRL_IN
 
 	printf("%s: ota ctrl indicate op 0x%02x\r\n", __func__, opcode);
 
-	p_data = (uint8_t *)os_mem_alloc(RAM_TYPE_DATA_ON, 6);
+	p_data = (uint8_t *)os_mem_alloc(RAM_TYPE_DATA_ON, 2 + val_len);
 	if (p_data == NULL) {
 		printf("%s: malloc failed!\r\n", __func__);
 		return false;
 	}
 
-	memset(p_data, 0, 6);
+	memset(p_data, 0, 2 + val_len);
 	p_data[0] = opcode;
 
 	switch(opcode) {
@@ -260,8 +260,8 @@ bool bt_ota_send_indicate(uint8_t conn_id, T_SERVER_ID service_id, T_OTA_CTRL_IN
 	break;
 	case OTA_HEADER_CHECK: {
 		p_data[1] = status;
-		LE_UINT32_TO_ARRAY(&p_data[2], value);
-		length = 6;
+		memcpy(&p_data[2], value, val_len);
+		length = 2 + val_len;
 	}
 	break;
 	case OTA_CHECKSUM_VERIFY: {
@@ -282,9 +282,9 @@ bool bt_ota_send_indicate(uint8_t conn_id, T_SERVER_ID service_id, T_OTA_CTRL_IN
 	}
 
 	if (send_flg) {
-	    // send indication to client
-	    ret = server_send_data(conn_id, service_id, OTA_SRV_OTA_CTRL_CHAR_INDEX,
-	    					   p_data, length, GATT_PDU_TYPE_INDICATION);
+		// send indication to client
+		ret = server_send_data(conn_id, service_id, OTA_SRV_OTA_CTRL_CHAR_INDEX,
+							p_data, length, GATT_PDU_TYPE_INDICATION);
 	}
 
 	os_mem_free(p_data);
@@ -302,7 +302,7 @@ void bt_ota_start(uint8_t conn_id, T_SERVER_ID service_id)
 	bt_ota_disconnect_flg = OTA_NO_DISC;
 
 	/* after enable indicate cccd, send ota image header get indicate */
-	bt_ota_send_indicate(conn_id, service_id, OTA_IMAGE_HEADER_GET, 0x01, NULL);
+	bt_ota_send_indicate(conn_id, service_id, OTA_IMAGE_HEADER_GET, 0x01, NULL, NULL);
 }
 
 /**
@@ -384,7 +384,7 @@ uint8_t bt_ota_handle_ota_header_checksum_packet(uint8_t conn_id, uint8_t *p_val
 	/*verify ota header checksum and parse ota header info*/
 	cause = bt_ota_header_check(p_value, len, &ota_hdr);
 	if (cause != OTA_HDR_CHECK_OK) {
-		bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_HEADER_CHECK, cause, NULL);
+		bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_HEADER_CHECK, cause, NULL, NULL);
 		bt_ota_disconnect_flg = OTA_ERR_DISC;
 
 		return 0;
@@ -396,7 +396,7 @@ uint8_t bt_ota_handle_ota_header_checksum_packet(uint8_t conn_id, uint8_t *p_val
 			printf("===the target OTA image is the previous ota image!===\r\n");
 		} else {
 			printf("OTA server has received all OTA data, OTA process completed!!!\r\n");
-			bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_COMPLETE, NULL, NULL);
+			bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_COMPLETE, NULL, NULL, NULL);
 			bt_ota_disconnect_flg = OTA_COMPLETE_DISC;
 
 			return 0;
@@ -414,8 +414,11 @@ uint8_t bt_ota_handle_ota_header_checksum_packet(uint8_t conn_id, uint8_t *p_val
 	}
 
 	/* ota image header check ok, inform remote device to start ota process */
-	bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_HEADER_CHECK,
-						  OTA_HDR_CHECK_OK, ota_dfu_ctrl_info.cur_offset);
+	uint8_t value[5] = {0};
+	uint8_t val_len = 5;
+	LE_UINT32_TO_ARRAY(&value[0], ota_dfu_ctrl_info.cur_offset);
+	value[4] = ota_dfu_ctrl_info.index;
+	bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_HEADER_CHECK, OTA_HDR_CHECK_OK, value, val_len);
 
 	return 1;
 }
@@ -445,7 +448,7 @@ uint8_t bt_ota_handle_ota_image_data_packet(uint8_t conn_id, uint8_t *p_value, u
 
 	/*if buffer full, received data reach 4k and wait for checksum from remote device*/
 	if(bt_ota_dfu_buffer_used_size == OTA_DATA_BUFFER_SIZE ||
-	   ota_dfu_ctrl_info.cur_offset + bt_ota_dfu_buffer_used_size == cur_image_total_len) {
+		ota_dfu_ctrl_info.cur_offset + bt_ota_dfu_buffer_used_size == cur_image_total_len) {
 		return 1;
 	}
 
@@ -549,14 +552,14 @@ uint8_t bt_ota_handle_ota_data_checksum_packet(uint8_t conn_id, uint8_t *p_value
 
 		printf("====== OTA update successfully ======\r\n");
 		/*inform remote device ota completed successfully*/
-		bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_COMPLETE, NULL, NULL);
+		bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_COMPLETE, NULL, NULL, NULL);
 		bt_ota_disconnect_flg = OTA_COMPLETE_DISC;
 	}
 
 	return 0;
 
 exit: //send checksum verify result
-	bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_CHECKSUM_VERIFY, status, NULL);
+	bt_ota_send_indicate(conn_id, bt_ota_service_id, OTA_CHECKSUM_VERIFY, status, NULL, NULL);
 	return (status == OTA_CHECKSUM_OK) ? 1 : 0;
 }
 

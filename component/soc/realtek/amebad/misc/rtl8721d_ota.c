@@ -148,7 +148,7 @@ void ota_platform_reset(void)
   *           useful when calculate checksum.
   */
 IMAGE2_RAM_TEXT_SECTION
-int  ota_readstream_user(u32 address, u32 len, u8 * data)
+int ota_readstream_user(u32 address, u32 len, u8 * data)
 {
 	assert_param(data != NULL);
 
@@ -228,7 +228,7 @@ int  ota_readstream_user(u32 address, u32 len, u8 * data)
   *           useful when address or len is not 4 byte aligned.
   */
 IMAGE2_RAM_TEXT_SECTION
-int  ota_writestream_user(u32 address, u32 len, u8 * data)
+int ota_writestream_user(u32 address, u32 len, const u8 * data)
 {
 	// Check address: 4byte aligned & page(256bytes) aligned
 	u32 page_begin = address &  (~0xff);                     
@@ -238,7 +238,7 @@ int  ota_writestream_user(u32 address, u32 len, u8 * data)
 	u32 addr_begin = address;
 	u32 addr_end = (page_cnt == 1) ? (address + len) : (page_begin + 0x100);
 	u32 size = addr_end - addr_begin;
-	u8 *buffer = data;
+	u8 *buffer = (u8 *)data;
 	u8 write_data[12];
 	
 	u32 offset_to_align;

@@ -767,4 +767,8 @@ in lwip_opt.h for support uart adapter*/
 
 #define CONFIG_EXAMPLE_CAPTIVE_PORTAL	0
 
+#if defined(CONFIG_MATTER) && CONFIG_MATTER
+#include "platform_opts_matter.h"
+#endif /* CONFIG_MATTER */
+
 #endif

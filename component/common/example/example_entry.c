@@ -496,6 +496,10 @@
 #include <littlefs_spi_nand/example_spi_nand_littlefs.h>
 #endif
 
+#if defined(CONFIG_EXAMPLE_MATTER) && CONFIG_EXAMPLE_MATTER
+#include <matter_example_entry.h>
+#endif
+
 /*
 	Preprocessor of example
 */
@@ -1147,5 +1151,9 @@ example_hilink();
 
 #if defined(CONFIG_EXAMPLE_CAPTIVE_PORTAL) && CONFIG_EXAMPLE_CAPTIVE_PORTAL
 	example_captive_portal();
+#endif
+
+#if defined(CONFIG_EXAMPLE_MATTER) && CONFIG_EXAMPLE_MATTER
+	matter_example_entry();
 #endif
 }

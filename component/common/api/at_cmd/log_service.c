@@ -47,6 +47,7 @@ extern void at_cloud_init(void);
 void at_log_init(void);
 
 char log_buf[LOG_SERVICE_BUFLEN];
+char atcmd_buf[LOG_SERVICE_BUFLEN];
 #if CONFIG_LOG_HISTORY
 char log_history[LOG_HISTORY_LEN][LOG_SERVICE_BUFLEN];
 static unsigned int log_history_count = 0;
@@ -514,25 +515,37 @@ void log_service(void *param)
 	_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_INFO, "\n\r# ");        
 	while(1){
 		while(xSemaphoreTake(log_rx_interrupt_sema, portMAX_DELAY) != pdTRUE);
+
+#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
+		if(gAT_Echo) {
+			uart_at_lock();
+			uart_at_send_string(log_buf);
+			uart_at_send_string("\r\n#");
+			uart_at_unlock();
+		}
+#endif
+		rtw_memset(atcmd_buf, '\0', LOG_SERVICE_BUFLEN);
+		rtw_memcpy(atcmd_buf, log_buf, LOG_SERVICE_BUFLEN);
+
 #if CONFIG_LOG_SERVICE_LOCK
 		log_service_lock();
 #endif
-		if(log_handler((char *)log_buf) == NULL){
+		if(log_handler((char *)atcmd_buf) == NULL){
 #if CONFIG_WLAN
-			if(mp_commnad_handler((char *)log_buf) < 0)
+			if(mp_commnad_handler((char *)atcmd_buf) < 0)
 #endif                        
 			{
 			#if SUPPORT_INTERACTIVE_MODE
-				print_help_handler((char *)log_buf);
+				print_help_handler((char *)atcmd_buf);
 				legency_interactive_handler(NULL, NULL);
 			#else
-				if(print_help_handler((char *)log_buf) < 0){
-					at_printf("unknown command %s\r\n", log_buf);
+				if(print_help_handler((char *)atcmd_buf) < 0){
+					at_printf("unknown command %s\r\n", atcmd_buf);
 				}
 			#endif
 			}
 		}
-		log_buf[0] = '\0';
+
 #if CONFIG_INIC_EN
 		inic_cmd_ioctl = 0;
 #endif

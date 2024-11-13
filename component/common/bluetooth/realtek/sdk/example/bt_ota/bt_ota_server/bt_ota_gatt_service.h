@@ -124,7 +124,7 @@ void bt_ota_disconnect(uint8_t conn_id);
 
 void bt_ota_update_new_image(void);
 bool bt_ota_send_indicate(uint8_t conn_id, T_SERVER_ID service_id, T_OTA_CTRL_IND_OPCODE opcode,
-									uint8_t status, uint32_t value);
+							uint8_t status, uint8_t *value, uint8_t val_len);
 void bt_ota_start(uint8_t conn_id, T_SERVER_ID service_id);
 void bt_ota_handle_ota_header_packet(uint8_t conn_id, uint8_t *p_value, uint16_t len);
 uint8_t bt_ota_handle_ota_header_checksum_packet(uint8_t conn_id, uint8_t *p_value, uint16_t len);

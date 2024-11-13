@@ -21,6 +21,11 @@ BASEDIR		= $(ROOTDIR)/../../../../..
 KM0_BUILDDIR	= $(ROOTDIR)/../../project_lp
 KM4_BUILDDIR	= $(ROOTDIR)/../../project_hp
 
+ifeq ($(CONFIG_MATTER_EN),y)
+MATTER_BUILDDIR = $(BASEDIR)/component/common/application/matter/project/amebad
+MATTER_INCLUDE  = $(MATTER_BUILDDIR)/Makefile.include.matter
+endif
+
 TARGETDIR	=$(BASEDIR)/component/soc/realtek/amebad
 BOOTLOADER	=$(BASEDIR)/component/soc/realtek/amebad/bootloader
 UTILITYDIR	= $(ROOTDIR)/gnu_utility
@@ -85,11 +90,15 @@ BUILD_TARGET_ROM_FOLDER_NS = $(ROOTDIR)/build/rom_ns
 IMAGE_TARGET_FOLDER     = $(ROOTDIR)/image
 
 ifeq ($(COMPILEOS),$(LINUX_OS))
+ifeq ($(CONFIG_MATTER_EN), y)
+include $(MATTER_BUILDDIR)/Makefile.toolchain.matter
+else
 ASDK_TOOLCHAIN = $(TOOLCHAINDIR)/linux/asdk-6.4.1/linux/newlib
 ASDK_TOOLCHAIN_R = ../toolchain/linux/asdk-6.4.1/linux/newlib
 TOOLCHAINDIR_OS = linux
 TOOLCHAINNAME = asdk-6.4.1-linux-newlib-build-2773-i686.tar.bz2
 TOOLCHAINURL	= https://github.com/Ameba-AIoT/ameba-toolchain/releases/download/6.4.1/asdk-6.4.1-linux-newlib-build-2773-i686.tar.bz2
+endif
 else ifeq ($(COMPILEOS_CYGWIN),Cygwin)
 ASDK_TOOLCHAIN = $(TOOLCHAINDIR)/cygwin/asdk-6.4.1/cygwin/newlib
 ASDK_TOOLCHAIN_R = ../toolchain/cygwin/asdk-6.4.1/cygwin/newlib
@@ -182,10 +191,25 @@ IFLAGS               += -I$(BASEDIR)/component/common/api/platform
 IFLAGS               += -I$(BASEDIR)/component/common/api/wifi
 IFLAGS               += -I$(BASEDIR)/component/common/api/network
 IFLAGS               += -I$(BASEDIR)/component/common/api/network/include
+IFLAGS               += -I$(BASEDIR)/component/common/audio
 IFLAGS               += -I$(BASEDIR)/component/common/test
 IFLAGS               += -I$(BASEDIR)/component/common/example
 IFLAGS               += -I$(BASEDIR)/component/common/utilities
 IFLAGS				 += -I$(BASEDIR)/component/common/drivers/si
+
+#AUDIO
+IFLAGS               += -I$(BASEDIR)/component/common/audio
+IFLAGS               += -I$(BASEDIR)/component/common/audio/faac/include
+IFLAGS               += -I$(BASEDIR)/component/common/audio/faac/libfaac
+IFLAGS               += -I$(BASEDIR)/component/common/audio/faac
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/haac
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/hmp3
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/g711
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/speex
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/speex/speex
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/fdk-aac
+#IFLAGS				 += -I$(BASEDIR)/component/common/audio/libav
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/fdk-aac/libSYS/include
 
 #MMF
 IFLAGS               += -I$(BASEDIR)/component/common/example/media_framework
@@ -204,12 +228,14 @@ IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/h
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/wlan_ram_map/rom
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/core/option
 IFLAGS               += -I$(BASEDIR)/component/common/network
+ifneq ($(CONFIG_MATTER_EN), y)
 IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/src/include
 IFLAGS               += -idirafter $(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/src/include/lwip
 IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/src/include/netif
 #IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/src/include/ipv4
 IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/port/realtek
 IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/port/realtek/freertos
+endif
 IFLAGS               += -I$(BASEDIR)/component/common/api
 IFLAGS               += -I$(BASEDIR)/component/common/api/at_cmd
 IFLAGS               += -I$(BASEDIR)/component/common/api/wifi/rtw_wpa_supplicant/src
@@ -289,6 +315,7 @@ IFLAGS               += -I$(BASEDIR)/component/common/bluetooth/realtek/sdk/exam
 IFLAGS               += -I$(BASEDIR)/component/common/example/coap
 IFLAGS               += -I$(BASEDIR)/component/common/network/coap
 IFLAGS               += -I$(BASEDIR)/component/common/network/coap/include
+
 
 #ethernet_mii
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/ethernet_mii
@@ -372,11 +399,13 @@ GLOBAL_CFLAGS += -nostartfiles
 GLOBAL_CFLAGS += -nostdlib
 GLOBAL_CFLAGS += -Wall
 GLOBAL_CFLAGS += -Wpointer-arith
-GLOBAL_CFLAGS += -Wstrict-prototypes
-GLOBAL_CFLAGS += -Wundef
 GLOBAL_CFLAGS += -Wno-write-strings
 GLOBAL_CFLAGS += -Wno-maybe-uninitialized
+ifneq ($(CONFIG_MATTER_EN), y)
+GLOBAL_CFLAGS += -Wstrict-prototypes
+GLOBAL_CFLAGS += -Wundef
 GLOBAL_CFLAGS += --save-temps
+endif
 GLOBAL_CFLAGS += -c
 GLOBAL_CFLAGS += -MMD -MP
 
@@ -397,11 +426,17 @@ GLOBAL_CFLAGS += -DCONFIG_SYSTEM_TIME64=0
 endif
 
 CPPFLAGS = $(GLOBAL_CFLAGS)
+ifneq ($(CONFIG_MATTER_EN), y)
 CPPFLAGS += -std=c++11 -fno-use-cxa-atexit
+endif
 
 ifeq (${BUILD_TYPE},MFG)
 GLOBAL_CFLAGS += -DCONFIG_BT_MP
 GLOBAL_CFLAGS += -DCONFIG_MP_INCLUDED
+endif
+
+ifeq ($(CONFIG_MATTER_EN), y)
+include $(MATTER_INCLUDE)
 endif
 
 #*****************************************************************************#
@@ -445,9 +480,8 @@ LD_ARG += -Wl,--cref
 LD_ARG += -Wl,--build-id=none
 LD_ARG += -save-temps 
 
-#
-#LD_ARG += -Wl,-wrap,malloc -Wl,-wrap,realloc
-#LD_ARG += -Wl,-wrap,calloc -Wl,-wrap,free
+LD_ARG += -Wl,-wrap,malloc  -Wl,-wrap,realloc  -Wl,-wrap,free  -Wl,-wrap,calloc
+LD_ARG += -Wl,-wrap,_malloc_r  -Wl,-wrap,_realloc_r  -Wl,-wrap,_free_r  -Wl,-wrap,_calloc_r
 
 ifeq ($(CONFIG_TIME64_ENABLE), y)
 LD_ARG += -Wl,-wrap,localtime -Wl,-wrap,mktime -Wl,-wrap,ctime

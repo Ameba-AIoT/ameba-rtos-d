@@ -57,8 +57,6 @@ T_CLIENT_ID   bt_ota_client_id;         /**< General Common Services client clie
 T_GAP_DEV_STATE bt_ota_client_gap_dev_state = {0, 0, 0, 0, 0};                /**< GAP device state */
 uint8_t bt_ota_client_app_max_links = 0;
 
-uint8_t bt_ota_client_complete = 1;
-
 char remote_device_name[14] = {'B', 'T', '_', 'O', 'T', 'A', '_', 'S', 'E', 'R', 'V', 'E', 'R', '\0'};
 
 /*============================================================================*
@@ -958,29 +956,15 @@ void bt_ota_client_handle_indicate_msg(uint8_t conn_id, void *p_data)
 		case OTA_HDR_CHECK: {
 			uint8_t check_result = p_value[1];
 			uint32_t offset = 0;
+			uint8_t index = 0;
 			LE_ARRAY_TO_UINT32(offset, &p_value[2]);
+			index = p_value[6];
 
 			if (check_result == OTA_HDR_OK) {
-				if (bt_ota_client_complete == 1) {
-					printf("OTA start: send an new OTA image\r\n");
-					bt_ota_client_complete = 0;
-					/* reset the param */
-					ota_tx_info.index = 0;
-					bt_ota_client_set_image_param(ota_tx_info.index);
-				} else {
-					printf("OTA start: continue the previous OTA process\r\n");
-
-					if (offset == 0 && ota_tx_info.cur_image_len == ota_tx_info.cur_offset) {
-						if (ota_tx_info.index + 1 < ota_tx_info.hdr_num) {
-							ota_tx_info.index += 1;
-							bt_ota_client_set_image_param(ota_tx_info.index); //set next image param
-						} else {
-							return;
-						}
-					}
-
-					ota_tx_info.cur_offset = offset;
-				}
+				printf("Start push OTA image: img_idx %d, offset %d\r\n", index, offset);
+				ota_tx_info.index = index;
+				bt_ota_client_set_image_param(ota_tx_info.index);
+				ota_tx_info.cur_offset = offset;
 
 				bt_ota_push_image_status = 0;
 				bt_ota_client_push_image(conn_id);
@@ -1009,7 +993,6 @@ void bt_ota_client_handle_indicate_msg(uint8_t conn_id, void *p_data)
 
 		case OTA_COMPLETE: {
 			printf("============ OTA process completed!!! ============\r\n");
-			bt_ota_client_complete = 1;
 		}
 		break;
 

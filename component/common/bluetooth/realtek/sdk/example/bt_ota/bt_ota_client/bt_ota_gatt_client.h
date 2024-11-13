@@ -38,7 +38,7 @@ extern "C"  {
 #define GATT_UUID_CHAR_OTA_DATA_CHECKSUM        0x87FB
 #define GATT_UUID_CHAR_OTA_CTRL	                0x87FA
 
-#define OTA_CLIENT_HDR_CHECK_PKT_LEN       5  // 4 + 1
+#define OTA_CLIENT_HDR_CHECK_PKT_LEN        5  // 4 + 1
 #define OTA_CLIENT_DATA_CHECKSUM_PKT_LEN    10 // 4 + 4 + 2
 
 #define OTA_CLIENT_BUFFER_SIZE        4096
@@ -71,14 +71,14 @@ typedef enum
 /** @brief BLE OTA client handle type*/
 typedef enum
 {
-    HDL_OTA_SRV_START,           //!< start handle of battery service
-    HDL_OTA_SRV_END,             //!< end handle of battery service
-    HDL_OTA_IMG_HDR,       //!< battery level characteristic value handle
-    HDL_OTA_HDR_CHECKSUM,  //!< battery level characteristic CCCD handle
-    HDL_OTA_DATA,            //!< handle cache length
-    HDL_OTA_DATA_CHECKSUM,
-    HDL_OTA_CTRL,
-    HDL_OTA_CTRL_CCCD,
+    HDL_OTA_SRV_START,     //!< start handle of ota service
+    HDL_OTA_SRV_END,       //!< end handle of ota service
+    HDL_OTA_IMG_HDR,       //!< ota header characteristic value handle
+    HDL_OTA_HDR_CHECKSUM,  //!< ota header checksum characteristic value handle
+    HDL_OTA_DATA,          //!< ota data characteristic value handle
+    HDL_OTA_DATA_CHECKSUM, //!< ota data checksum characteristic value handle
+    HDL_OTA_CTRL,          //!< ota ctrl characteristic value handle
+    HDL_OTA_CTRL_CCCD,     //!< ota ctrl characteristic CCCD handle
     HDL_OTA_CACHE_LEN
 } T_OTA_HANDLE_TYPE;
 
@@ -166,8 +166,6 @@ typedef struct
 	uint32_t cur_offset;           //have sended data offset (without header)
 	uint32_t cur_image_len;        //current image length
 	uint32_t ota_image_total_len;  // total_len=image1 len( +image2 len)
-	//uint32_t checksum;//debug
-	uint32_t begin_time;//test
 } ota_msg_t;
 
 

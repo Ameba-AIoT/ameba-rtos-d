@@ -26,6 +26,10 @@ include $(MAKE_INCLUDE_GEN)
 
 export ABS_ROOTDIR MAKE_INCLUDE_GEN HOSTCC
 
+ifeq ($(CONFIG_MATTER_EN), y)
+MATTER_DIR = $(ABS_ROOTDIR)/../../../../../component/common/application/matter
+MATTER_BUILDDIR = $(MATTER_DIR)/project/amebad
+endif
 
 ifeq ($(COMPILEOS_CYGWIN),Cygwin)
 HOSTNAME_APP = /usr/bin/hostname
@@ -57,7 +61,11 @@ LINK_ROM_SYMBOL_BOOT = ./ld/rlx8721d_rom_symbol_empty.ld
 ifeq ($(CONFIG_LINK_ROM_SYMB),y) 
 LINK_ROM_LIB =
 LINK_ROM_LIB_NS =
+ifeq ($(CONFIG_MATTER_EN), y)
+LINK_ROM_SYMBOL_NS = $(MATTER_BUILDDIR)/ld/rlx8721d_rom_symbol_acut_matter.ld
+else
 LINK_ROM_SYMBOL_NS = ./ld/rlx8721d_rom_symbol_acut.ld
+endif
 LINK_ROM_SYMBOL_S = ./ld/rlx8721d_rom_symbol_acut_s.ld
 LINK_ROM_SYMBOL_BOOT = ./ld/rlx8721d_rom_symbol_acut_boot.ld
 endif
@@ -70,6 +78,25 @@ ifeq ($(CONFIG_FT),y)
 LINK_APP_LIB = $(ASDK_TOOLCHAIN)/arm-none-eabi/lib/v8-m.main/fpu/fpv5-sp-d16/libm.a $(CMSISMATHLIBDIR)/libarm_cortexM3l_math.a
 else
 LINK_APP_LIB =
+endif
+
+ifeq ($(CONFIG_AUDIO_EN),y)
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_ac3.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_amr.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_haac.a
+#LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_hls.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_hmp3.a
+#LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_m4a.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_m4a_self.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_mp3.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_flac.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_ekho.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_gsm610.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_libogg.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_opusfile.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_opus.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_opusenc.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_resample.a
 endif
 
 ifeq ($(CONFIG_BT_EN), y) 
@@ -94,6 +121,10 @@ endif
 ifeq ($(CONFIG_RTP_CODEC_EN), y) 
 LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_rtp_codec.a
 endif
+# LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_g711.a
+# LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_speex.a
+# LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_haac.a
+# LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_faac.a
 LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_cmsis_dsp.a
 
 ifeq ($(CONFIG_TRUSTZONE), y)
@@ -154,6 +185,9 @@ endif
 #audio
 ifeq ($(CONFIG_MEDIA_PLAYER),y)
 LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_playback.a
+ifeq ($(CONFIG_MEDIA_CODEC_AAC),y)
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_fdkaac.a
+endif
 ifeq ($(CONFIG_MEDIA_CODEC_HAAC),y)
 LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_haac.a
 endif
@@ -174,6 +208,9 @@ ifeq ($(CONFIG_AUDIO_FWK),y)
 LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_base.a
 endif
 
+ifeq ($(CONFIG_MATTER_EN), y)
+LINK_APP_LIB += -Wl,--start-group $(ROOTDIR)/lib/application/lib_main.a $(ROOTDIR)/lib/application/libCHIP.a -Wl,--end-group
+endif
 
 rom: build_target_folder copy_ld_rom check_toolchain build_info.h make_subdirs_rom package_prebuilt_rom_objs rom_linker 
 rom_ns: build_target_folder copy_ld_rom_ns check_toolchain build_info.h make_subdirs_rom_ns package_prebuilt_rom_objs rom_linker_ns 
@@ -257,6 +294,10 @@ make_subdirs_lib:
 	@make -C make/application/game_headset all
 	#@make -C make/network/libcoap all
 #	MMF LIBRARY
+# 	@make -C make/audio/g711 all
+# 	@make -C make/audio/faac all
+# 	@make -C make/audio/haac all
+#	@make -C make/audio/speex all
 	@make -C make/media/rtp_codec all
 	@make -C make/network/rtsp all
 	@make -C make/media/mmfv2 all
@@ -270,7 +311,13 @@ make_subdirs_lib:
 # build audio libs
 	@+$(MAKE) -C make/audio lib
 
-	
+#*****************************************************************************#
+#                         MATTER MAKE RULES                                   #
+#*****************************************************************************#
+ifeq ($(CONFIG_MATTER_EN), y)
+include $(MATTER_BUILDDIR)/Makefile
+endif
+
 #*****************************************************************************#
 #                      RULES TO LINKER IMAGE                                  #
 #*****************************************************************************#
@@ -469,7 +516,7 @@ linker_loader:
 	@echo "========== Image manipulating start =========="
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/ram_1.bin  __ram_start_table_start__  $(IMAGE_TARGET_FOLDER)/target_loader.map
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/xip_boot.bin  __flash_boot_text_start__  $(IMAGE_TARGET_FOLDER)/target_loader.map
-	$(CODE_ANALYZE_PYTHON)
+	#$(CODE_ANALYZE_PYTHON)
 
 	cat $(IMAGE_TARGET_FOLDER)/xip_boot_prepend.bin $(IMAGE_TARGET_FOLDER)/ram_1_prepend.bin > $(IMAGE_TARGET_FOLDER)/km4_boot_all.bin
 
@@ -648,6 +695,11 @@ clean:
 	@make -C make_secure clean
 	# make -C config clean
 	make -C $(SCRIPTSDIR)/lxdialog clean
+
+ifeq ($(CONFIG_MATTER_EN), y)
+	make -C $(MATTER_BUILDDIR)/make/chip_main clean
+	make -C $(MATTER_BUILDDIR)/make/chip clean
+endif
 
 clean_rom:
 	@make -C make_rom/make clean

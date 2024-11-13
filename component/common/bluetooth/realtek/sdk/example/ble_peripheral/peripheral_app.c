@@ -750,7 +750,6 @@ T_APP_RESULT app_profile_callback(T_SERVER_ID service_id, void *p_data)
 						printf("SIMP_NOTIFY_INDICATE_V3_ENABLE\r\n");
 					}
 					break;
-
 				case SIMP_NOTIFY_INDICATE_V3_DISABLE:
 					{
 						APP_PRINT_INFO0("SIMP_NOTIFY_INDICATE_V3_DISABLE");
@@ -777,15 +776,28 @@ T_APP_RESULT app_profile_callback(T_SERVER_ID service_id, void *p_data)
 
 		case SERVICE_CALLBACK_TYPE_READ_CHAR_VALUE:
 			{
-				if (p_simp_cb_data->msg_data.read_value_index == SIMP_READ_V1)
+				if (p_simp_cb_data->msg_data.read.read_value_index == SIMP_READ_V1)
 				{
-					uint8_t value[2] = {0x01, 0x02};
 					APP_PRINT_INFO0("SIMP_READ_V1");
-					printf("SIMP_READ_V1: value 0x%02x 0x%02x\r\n", value[0], value[1]);
-					simp_ble_service_set_parameter(SIMPLE_BLE_SERVICE_PARAM_V1_READ_CHAR_VAL, 2, &value);
+					if (p_simp_cb_data->msg_data.read.read_offset == 0) {
+						// New read, simple_char_read_value & simple_char_read_len should point to a new value in simp_ble_service_set_parameter
+						printf("New read offset = %d\r\n", p_simp_cb_data->msg_data.read.read_offset);
+						uint8_t value[SIMP_READ_V1_MAX_LEN];
+						printf("SIMP_READ_V1: value ");
+						for (uint16_t i = 0; i < SIMP_READ_V1_MAX_LEN; i ++) {
+							value[i] = i & 0xFF;
+							printf("0x%02x ", value[i]);
+						}
+						printf("\r\n");
+						simp_ble_service_set_parameter(SIMPLE_BLE_SERVICE_PARAM_V1_READ_CHAR_VAL, SIMP_READ_V1_MAX_LEN, &value);
+					} else {
+						// Blob read, simple_char_read_value & simple_char_read_len should not change
+						printf("Blob read offset = %d\r\n", p_simp_cb_data->msg_data.read.read_offset);
+					}
 				}
 			}
 			break;
+
 		case SERVICE_CALLBACK_TYPE_WRITE_CHAR_VALUE:
 			{
 				switch (p_simp_cb_data->msg_data.write.opcode)

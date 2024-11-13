@@ -13,6 +13,7 @@ MODULE_IFLAGS += -I$(DIR)
 #*****************************************************************************#
 CSRC += $(DIR)/crc32.c \
 	$(DIR)/dct.c \
+	$(DIR)/dct2.c \
 	$(DIR)/dct_util.c
 #	$(DIR)/dct_test.c
 

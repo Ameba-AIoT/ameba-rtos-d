@@ -157,10 +157,25 @@ IFLAGS               += -I$(BASEDIR)/component/common/api/platform
 IFLAGS               += -I$(BASEDIR)/component/common/api/wifi
 IFLAGS               += -I$(BASEDIR)/component/common/api/network
 IFLAGS               += -I$(BASEDIR)/component/common/api/network/include
+IFLAGS               += -I$(BASEDIR)/component/common/audio
 IFLAGS               += -I$(BASEDIR)/component/common/test
 IFLAGS               += -I$(BASEDIR)/component/common/example
 IFLAGS               += -I$(BASEDIR)/component/common/utilities
 IFLAGS				 += -I$(BASEDIR)/component/common/drivers/si
+
+#AUDIO
+IFLAGS               += -I$(BASEDIR)/component/common/audio
+IFLAGS               += -I$(BASEDIR)/component/common/audio/faac/include
+IFLAGS               += -I$(BASEDIR)/component/common/audio/faac/libfaac
+IFLAGS               += -I$(BASEDIR)/component/common/audio/faac
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/haac
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/hmp3
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/g711
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/speex
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/speex/speex
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/fdk-aac
+#IFLAGS				 += -I$(BASEDIR)/component/common/audio/libav
+IFLAGS				 += -I$(BASEDIR)/component/common/audio/fdk-aac/libSYS/include
 
 #MMF
 IFLAGS               += -I$(BASEDIR)/component/common/example/media_framework

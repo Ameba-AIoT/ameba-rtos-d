@@ -1296,9 +1296,6 @@ int wifi_set_softap_gkey_interval(uint32_t interval);
  * @return 0: success.
 */
 int wifi_set_slient_softap(rtw_bool_t enable);
-#ifdef __cplusplus
-  }
-#endif
 
 typedef struct {
     char country_code[2];
@@ -1306,7 +1303,14 @@ typedef struct {
 } CountryCodeCount;
 
 /**
-* @brief  Call "wifi_scan_networks_with_extended_countryinfo" and memcpy the country code.
+* @brief  Call "wifi_set_country" and set channel plan accordingly
+* @param[in] country_code_get: char that saved the country code.
+* @return 
+*/
+void wifi_set_channel_plan_by_country_code(unsigned char* country_code);
+
+/**
+* @brief  Call "wifi_scan_networks_with_extended_countryinfo" and memcpy the country code. Set channel plan accordingly
 * @param[in] country_code_get: char that saved the country code which follows the logic of WiFi NIC.
 * @return 
 */
@@ -1336,6 +1340,16 @@ void wifi_add_country_code(CountryCodeCount *country_code_counts, int *num_codes
 * @return 
 */
 void wifi_return_country_code(CountryCodeCount *country_code_counts, int *num_codes);
+
+/**
+ * @brief  Get station security type
+ * @return  Station security type
+ */
+int wifi_get_sta_security_type(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // __WIFI_API_H
 

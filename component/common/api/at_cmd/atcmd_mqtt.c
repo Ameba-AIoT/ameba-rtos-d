@@ -369,6 +369,16 @@ void fATQC(void *arg)
         goto end;
     }
 
+        /* Stop the task. */
+    if(MQTT_TASK_START == mqttCb->taskState)
+    {
+        mqttCb->taskState = MQTT_TASK_STOP;
+        while(MQTT_TASK_NOT_CREATE != mqttCb->taskState)
+        {
+            vTaskDelay(20);
+        }
+    }
+
     /* Disconnect client. */
     if(mqttCb->client.isconnected)
     {
@@ -381,16 +391,6 @@ void fATQC(void *arg)
             goto end;
         }
         mqttCb->client.isconnected = 0;
-    }
-
-    /* Stop the task. */
-    if(MQTT_TASK_START == mqttCb->taskState)
-    {
-        mqttCb->taskState = MQTT_TASK_STOP;
-        while(MQTT_TASK_NOT_CREATE != mqttCb->taskState)
-        {
-            vTaskDelay(20);
-        }
     }
 
     /* Disconnect host. */
@@ -602,6 +602,7 @@ void fATQN(void *arg)
         /* AT output when receiving CONNACK. */
         mqtt_debug("\r\n[ATQN] Sent connection request, waiting for ACK");
         mqttCb->client.mqttstatus = MQTT_CONNECT;
+        mqttCb->initialConnect = 1;
     }
 
 end:
@@ -685,7 +686,7 @@ void fATQD(void *arg)
     }
 
 end:
-    /* Delete the stored clientid, username, password. */
+    /* Delete the stored clientid, username, password. Set the flag back. */
     if(NULL != mqttCb)
     {
         if(NULL != mqttCb->clientId)
@@ -703,6 +704,8 @@ end:
             free(mqttCb->password);
             mqttCb->password = NULL;
         }
+        mqttCb->offline = 0;
+        mqttCb->initialConnect = 0;
     }
 
     if(MQTT_OK != resultNo)
@@ -1393,19 +1396,6 @@ void fATQR(void *arg)
         mqttCb = mqttAtHandle->mqttCb[i];
         if(NULL != mqttCb)
         {
-            /* Disconnect client. */
-            if(mqttCb->client.isconnected)
-            {
-                mqtt_debug("\r\n[ATQC] Still connected");
-                res = MQTTDisconnect(&mqttCb->client);
-                if(0 != res)
-                {
-                    mqtt_debug("\r\n[ATQC] Can not disconnect");
-                    /* Continue to stop tasks, do not break here. */
-                }
-                mqttCb->client.isconnected = 0;
-            }
-
             /* Stop the task. */
             if(MQTT_TASK_START == mqttCb->taskState)
             {
@@ -1416,12 +1406,25 @@ void fATQR(void *arg)
                 }
             }
 
+            /* Disconnect client. */
+            if(mqttCb->client.isconnected)
+            {
+                mqtt_debug("\r\n[ATQR] Still connected");
+                res = MQTTDisconnect(&mqttCb->client);
+                if(0 != res)
+                {
+                    mqtt_debug("\r\n[ATQR] Can not disconnect");
+                    /* Continue to stop tasks, do not break here. */
+                }
+                mqttCb->client.isconnected = 0;
+            }
+
             /* Disconnect host. */
             if(mqttCb->networkConnect)
             {
                 if(NULL != mqttCb->network.disconnect)
                 {
-                    mqtt_debug("\r\n[ATQC] Disconnect from %s", mqttCb->host);
+                    mqtt_debug("\r\n[ATQR] Disconnect from %s", mqttCb->host);
                     mqttCb->network.disconnect(&mqttCb->network);
                 }
                 mqttCb->networkConnect = 0;
@@ -1852,8 +1855,16 @@ static void mqttClientAliveFail(MQTT_CONTROL_BLOCK *mqttCb)
                 mqttCb->topic[i] = NULL;
             }
         }
-        at_printf("%sOK\r\n", "+MQTTUNREACH:");
-        ATCMD_NEWLINE_HASHTAG();
+        if(0 == mqttCb->initialConnect)
+        {
+            at_printf("%sOK\r\n", "+MQTTUNREACH:");
+            ATCMD_NEWLINE_HASHTAG();
+        }
+        else
+        {
+            /* Do not use at_printf here. */
+            mqtt_debug("\r\n[mqttClientAliveFail] Can not connect.");
+        }
     }
     mqttCb->client.ping_outstanding = 0;
     mqttCb->client.next_packetid = 1;
@@ -1907,11 +1918,19 @@ static MQTT_RESULT_ENUM mqttClientDataProc(MQTT_CONTROL_BLOCK *mqttCb, fd_set *r
                     mqttCb->topic[i] = NULL;
                 }
             }
-            at_printf("%sOK\r\n", "+MQTTUNREACH:");
-            ATCMD_NEWLINE_HASHTAG();
+            if(0 == mqttCb->initialConnect)
+            {
+                at_printf("%sOK\r\n", "+MQTTUNREACH:");
+                ATCMD_NEWLINE_HASHTAG();
+            }
+            else
+            {
+                /* Do not use at_printf here. */
+                mqtt_debug("\r\n[mqttClientDataProc] Lost connection.");
+            }
         }
-        /* Try re-connect per second. */
-        if(mqttCb->offline && NULL != mqttCb->host && NULL != mqttCb->clientId)
+        /* Try re-connect per second, except when initial-connect. */
+        if(0 == mqttCb->initialConnect && 1 == mqttCb->offline && NULL != mqttCb->host && NULL != mqttCb->clientId)
         {
             vTaskDelay(1000);
             if(RTW_SUCCESS == wifi_is_ready_to_transceive(RTW_STA_INTERFACE))
@@ -1981,6 +2000,7 @@ static MQTT_RESULT_ENUM mqttClientDataProc(MQTT_CONTROL_BLOCK *mqttCb, fd_set *r
                     mqtt_debug("\r\n[mqttClientDataProc] MQTT can not connect");
                     res = FAILURE;
                 }
+                mqttCb->initialConnect = 0;
                 *needAtOutpput = 1;
             }
             else if(PINGRESP == packet_type)

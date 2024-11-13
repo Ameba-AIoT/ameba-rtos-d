@@ -99,6 +99,10 @@ ifeq ($(CONFIG_BLE_MATTER_ADAPTER),y)
 	make -C ble_matter_adapter all
 endif
 
+ifeq ($(CONFIG_BLE_TRANSFER_MODULE),y)
+	make -C ble_transfer_module all
+endif
+
 endif
 
 #*****************************************************************************#
@@ -191,6 +195,10 @@ endif
 
 ifeq ($(CONFIG_BLE_MATTER_ADAPTER),y)
 	make -C ble_matter_adapter clean
+endif
+
+ifeq ($(CONFIG_BLE_TRANSFER_MODULE),y)
+	make -C ble_transfer_module clean
 endif
 
 endif

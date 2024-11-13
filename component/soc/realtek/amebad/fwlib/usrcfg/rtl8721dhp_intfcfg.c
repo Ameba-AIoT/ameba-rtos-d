@@ -22,7 +22,8 @@
 
 
 PSRAMCFG_TypeDef psram_dev_config = {
-#if defined(CONFIG_REPEATER) && CONFIG_REPEATER 
+#if (defined(CONFIG_REPEATER) && CONFIG_REPEATER) || \
+	((defined(CONFIG_MATTER_SECURE) && CONFIG_MATTER_SECURE))
 	.psram_dev_enable = TRUE,			//enable psram
 	.psram_dev_cal_enable = TRUE,			//enable psram calibration function
 	.psram_dev_retention = TRUE,			//enable psram retention
