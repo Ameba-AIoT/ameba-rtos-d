@@ -20,6 +20,7 @@ Table of Content
    * [Linux Terminal](#linux-terminal)
 * [5 Downloading Images to Ameba-D](#5-downloading-images-to-ameba-d)
 * [6 Release Notes](#6-release-notes)
+* [7 Matter Support](#7-matter-support)
 
 
 # 1 Getting Started
@@ -225,3 +226,7 @@ Assuming that the ImageTool on PC is a server, it sends images files to Ameba (c
 ## Vesion Sync
 
 GitHub `ameba-rtos-d` is currently sync with 6.2 Git 73b6c5ec.
+
+# 7 Matter Support
+
+Please check out [ameba-rtos-matter](https://github.com/Ameba-AIoT/ameba-rtos-matter) to learn more about Matter support.
