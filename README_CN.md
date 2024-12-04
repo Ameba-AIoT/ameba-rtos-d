@@ -20,6 +20,7 @@
    * [Linux终端](#Linux终端)
 * [5 固件烧录](#5-固件烧录)
 * [6 发布说明](#6-发布说明)
+* [7 Matter支持](#7-matter支持)
 
 
 # 1 开始
@@ -223,3 +224,7 @@ chmod -R 777 {path}/project/realtek_amebaD_va0_example/GCC-RELEASE/
 ## 版本同步
 
 GitHub仓库`ameba-rtos-d`目前同步到6.2 Git分支的版本为73b6c5ec。
+
+# 7 Matter支持
+
+请下载[ameba-rtos-matter](https://github.com/Ameba-AIoT/ameba-rtos-matter) 获取更多关于Matter的信息。
