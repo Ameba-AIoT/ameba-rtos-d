@@ -53,6 +53,7 @@ CSRC +=	$(DIR_COM)/rtl8721d_i2c.c \
 	$(DIR_COM)/rtl8721d_gdma_memcpy.c \
 	$(DIR_COM)/rtl8721d_bor.c \
 	$(DIR_COM)/rtl8721d_ram_libc.c \
+	$(DIR_COM)/rtl8721d_gdma_ram.c \
 
 CSRC +=	\
 		$(CFGDIR)/rtl8721dlp_intfcfg.c \

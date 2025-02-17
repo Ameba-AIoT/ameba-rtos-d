@@ -10,10 +10,11 @@ IFLAGS               += -I$(BASEDIR)/component/common/network/libcoap/include
 #*****************************************************************************#
 ifeq ($(CONFIG_MATTER_EN), y)
 LWIP_VERSION := lwip_v2.1.2
+LWIPDIR = $(MATTER_DIR)/common/lwip/$(LWIP_VERSION)
 else
 LWIP_VERSION := lwip_v2.0.2
-endif
 LWIPDIR = $(BASEDIR)/component/common/network/lwip/$(LWIP_VERSION)
+endif
 NETWORK = $(BASEDIR)/component/common/network
 
 #*****************************************************************************#

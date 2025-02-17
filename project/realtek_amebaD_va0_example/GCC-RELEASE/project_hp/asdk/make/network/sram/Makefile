@@ -8,7 +8,7 @@ IFLAGS               += -I$(BASEDIR)/component/common/network/libcoap/include
 #                               VARIABLES	                              #
 #*****************************************************************************#
 ifeq ($(CONFIG_MATTER_EN),y)
-LWIPDIR = $(BASEDIR)/component/common/network/lwip/lwip_v2.1.2
+LWIPDIR = $(MATTER_DIR)/common/lwip/lwip_v2.1.2
 else
 LWIPDIR = $(BASEDIR)/component/common/network/lwip/lwip_v2.0.2
 endif

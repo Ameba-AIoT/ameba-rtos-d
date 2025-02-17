@@ -275,6 +275,7 @@
   #else
     #define NET_IF_NUM ((CONFIG_ETHERNET) + (CONFIG_WLAN) + 1)
   #endif
+  #define CONFIG_SOFTAP_KEEP_SILENT_TABLE
 #else
   #define NET_IF_NUM ((CONFIG_ETHERNET) + (CONFIG_WLAN))
 #endif

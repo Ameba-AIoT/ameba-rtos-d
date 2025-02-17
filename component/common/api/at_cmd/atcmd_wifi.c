@@ -3577,7 +3577,7 @@ extern char *http_post_header(char *host, char *resource, char *type, int data_l
 	
 	 //send get request
 	sprintf(message,"%s",http_get_header(host,http_resourse));
-	printf("\nRequest:\n%s\n",message);
+	printf("\nGET request header:\n%s",message);
 	 bytes = write(sockfd,message,256);
 	 if (bytes < 0){
 		 printf("[ERROR] http client send get packet failed\n");
@@ -3593,7 +3593,7 @@ extern char *http_post_header(char *host, char *resource, char *type, int data_l
  	{
 
 	sprintf(message,"%s",http_post_header(host, http_resourse,http_content ,strlen(post_data)));
-	printf("\nRequest header :\n%s\n",message);
+	printf("\nPOST request header:\n%s",message);
 	bytes = write(sockfd,message,1024);
 	
 	
@@ -3617,24 +3617,44 @@ extern char *http_post_header(char *host, char *resource, char *type, int data_l
 
  	
 	 //receive response
+     fd_set read_fds;
+     struct timeval timeout;
+     timeout.tv_sec = 3;
+     timeout.tv_usec = 0;
+     FD_ZERO(&read_fds);
+     FD_SET(sockfd, &read_fds);
 	
-	 response = malloc(1500);
+	 response = malloc(1500+1);
 	 if(response ==NULL)
 		 printf("[ERROR] malloc failed\n");
 	 printf("Response:\n");
 	 do {
-		 memset(response,0,1500);
-		 bytes = read(sockfd,response,1500-1);
-		 if (bytes < 0)
-			 printf("[ERROR] http client receive packet failed\n");
-		 if (bytes == 0)
-			 break;
-		 printf("%s",response);
+		 memset(response,0,1500+1);
+         if(select(sockfd+1, &read_fds, NULL, NULL, &timeout)) {
+            bytes = read(sockfd,response,1500);
+            if (bytes < 0) {
+                printf("[ERROR] http client receive packet failed\n");
+                break;
+            }
+            if (bytes == 0) {
+                printf("TCP connection is closed\n");
+                break;
+            }
+            at_printf("%s",response);
+         }
+         else {
+            printf("Timeout! No data \n");
+            break;
+         }
 		 
 	 } while (bytes > 0);
 	 
  exit:
- 	 at_printf("%sERROR:%d\r\n", "+HTTPCLIENT:", error_no);
+     if(error_no != 0)
+     {
+        at_printf("\r\n%sERROR:%d\r\n", "+HTTPCLIENT:", error_no);
+     }
+ 	 
 	 ATCMD_NEWLINE_HASHTAG();
 	 //close the socket
 	  free(response);
@@ -3659,7 +3679,8 @@ extern char *http_post_header(char *host, char *resource, char *type, int data_l
 	( void ) ctx;
 	( void ) level;
 	
-	printf("\n\r%s:%d: %s\n\r", file, line, str);
+	//printf("\n\r%s:%d: %s\n\r", file, line, str);
+    printf("%s", str);
 }
 
 extern int rtw_get_random_bytes(void* dst, u32 size);
@@ -3769,11 +3790,11 @@ static  unsigned char test_ca_crt[2048] =  \
 
 
 
-
+    mbedtls_x509_crt client_ca_x509;
 	mbedtls_x509_crt client_x509;
 	mbedtls_pk_context client_pk;
 	mbedtls_pk_context client_pub_key;
-	
+
 
 static void  https_client_ver2(void)
 
@@ -3804,6 +3825,7 @@ static void  https_client_ver2(void)
 	if(ssl_verify == 2){
 
     printf("\n\r set client ssl verify \n\r");
+    mbedtls_x509_crt_init(&client_ca_x509);
 	mbedtls_x509_crt_init(&client_x509);
 	mbedtls_pk_init(&client_pk);
 	
@@ -3816,7 +3838,7 @@ static void  https_client_ver2(void)
 			 goto exit;
 		}
 	
-		if ((ret = mbedtls_x509_crt_parse(&client_x509, (const unsigned char *) test_ca_crt, strlen((char const *)test_ca_crt) + 1)) != 0) {
+		if ((ret = mbedtls_x509_crt_parse(&client_ca_x509, (const unsigned char *) test_ca_crt, strlen((char const *)test_ca_crt) + 1)) != 0) {
              https_err =13;
 			printf(" failed\n  ! mbedtls_x509_crt_parse returned %d,http_err is %d\n\n", ret,https_err);
 			goto exit;
@@ -3836,7 +3858,7 @@ static void  https_client_ver2(void)
 	/*
 	 * 1. Start the connection
 	 */
-	printf("\n\r  . Connecting to tcp/%s/%s...", host, port_ssl);
+	printf("\n\r  . Connecting to tcp/%s/%s...\n\r", host, port_ssl);
 
 	mbedtls_net_init(&server_fd);
 
@@ -3846,7 +3868,7 @@ static void  https_client_ver2(void)
 		goto exit;
 	}
 
-	printf(" ok\n");
+	printf("  . Connect ok\n\r");
 
 	/*
 	 * 2. Setup stuff
@@ -3869,9 +3891,10 @@ static void  https_client_ver2(void)
 
 if(ssl_verify == 2){
 
-	    mbedtls_ssl_conf_ca_chain(&conf, client_x509.next, NULL);
+	    mbedtls_ssl_conf_ca_chain(&conf, &client_ca_x509, NULL);
 	    mbedtls_ssl_conf_own_cert(&conf, &client_x509, &client_pk);
-		mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+		//mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+        mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_NONE);
 
 			}
  else 
@@ -3881,6 +3904,8 @@ if(ssl_verify == 2){
 
     mbedtls_ssl_conf_rng(&conf, my_random, NULL);
 	
+    //mbedtls_debug_set_threshold(3);
+    mbedtls_ssl_conf_dbg(&conf, my_debug, NULL);
 	
 	if((ret = mbedtls_ssl_setup(&ssl, &conf)) != 0) {
 		https_err =16;
@@ -3893,7 +3918,7 @@ if(ssl_verify == 2){
 	/*
 	 * 3. Handshake
 	 */
-	printf("\n\r  . Performing the SSL/TLS handshake...");
+	printf("  . Performing the SSL/TLS handshake...\n\r");
 
 	while((ret = mbedtls_ssl_handshake(&ssl)) != 0) {
 		if((ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE
@@ -3907,7 +3932,7 @@ if(ssl_verify == 2){
 		retry_count++;
 	}
 
-	printf(" ok\n");
+	printf("\n\r  . SSL/TLS handshake ok\n");
 	printf("\n\r  . Use ciphersuite %s\n", mbedtls_ssl_get_ciphersuite(&ssl));
 
 
@@ -3986,11 +4011,12 @@ else {
 		while((read_size = mbedtls_ssl_read(&ssl, buf, len)) > 0) {
 			
 
-			printf("\n\r read resource %d bytes,%s\n\r", read_size,buf);
+			printf("\n\r read resource %d bytes\n\r", read_size);
+            at_printf("%s", buf);
 			resource_size += read_size;
 		}
 
-		printf("exit read. ret = %d\n", read_size);
+		printf("exit read. ret = -0x%x\n", -read_size);
 		
 
 	
@@ -4003,7 +4029,7 @@ exit:
 	mbedtls_ssl_config_free(&conf);
 	if(ssl_verify == 2)
 		{
-
+        mbedtls_x509_crt_free(&client_ca_x509);
 		mbedtls_x509_crt_free(&client_x509);
 		mbedtls_pk_free(&client_pk);
 
@@ -4042,7 +4068,7 @@ void fATPb(void *arg)
 
  argc = parse_param(arg, argv);
  
-	if(!arg){
+	if((!arg) || (argc != 9)){
 		AT_DBG_MSG(AT_FLAG_WIFI, AT_DBG_ERROR,
 			"[+HTTPCLIENT] Usage: AT+HTTPCLIENT=<HTTP:1/HTTPS:2><host>,<port>,<GET:2/POST:3>,<path>,<ca:1:N/2:Y>,<content-type>,<data>\n\r "\
 			"          eg:AT+HTTPCLIENT=2,httpbin.org,443,3,/post,2,application/json,param1=test_data1&param2=test_data2 \n\r   "\
@@ -4053,7 +4079,7 @@ void fATPb(void *arg)
 		}
 
 	transport_type=atoi((char*)argv[1]);
-	if(transport_type == NULL)
+    if((transport_type <= 0) || (transport_type > 2))
 		{
     printf("\n\r set transport type failed \n\r");
 	error_no = 2;
@@ -4062,7 +4088,7 @@ void fATPb(void *arg)
 
 	
 	http_port = atoi((char*)argv[3]);
-	if(http_port == NULL)
+	if((http_port <= 0) || (http_port > 65535))
 		{
     printf("\n\r set http port failed \n\r");
 	error_no = 3;
@@ -4081,7 +4107,7 @@ void fATPb(void *arg)
 	
     http_type = atoi((char*)argv[4]);//GET:2/POST:3
     
-    	if(http_type == NULL) {
+    	if((http_type <= 1) || (http_type > 3)) {
 	 printf("\n\r set http type failed \n\r");
 	error_no = 5;
 	goto err_exit;
@@ -4119,9 +4145,9 @@ void fATPb(void *arg)
 
     ssl_verify = atoi((char*)argv[6]);
 
-	 if((transport_type == 2) && ( ssl_verify  == NULL))
+	 if((transport_type == 2) && (( ssl_verify <= 0) || (ssl_verify > 2)))
 				 {
-				 printf("\n\r set https client verufy failed \n\r");
+				 printf("\n\r set https client verify failed \n\r");
 					error_no = 9;
 					goto err_exit;
 	 
@@ -4149,13 +4175,13 @@ else  if (transport_type == 2)
 	}
      
 }
-    err_exit:
-		
-		at_printf("%sERROR:%d\r\n", "+HTTPCLIENT:", error_no);
-		ATCMD_NEWLINE_HASHTAG();
-		return;
 	exit:
 	    at_printf("%sOK\r\n", "+HTTPCLIENT:");
+		ATCMD_NEWLINE_HASHTAG();
+		return;
+
+    err_exit:		
+		at_printf("%sERROR:%d\r\n", "+HTTPCLIENT:", error_no);
 		ATCMD_NEWLINE_HASHTAG();
 		return;
  }

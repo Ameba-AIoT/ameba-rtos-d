@@ -1923,3 +1923,24 @@ void wext_change_mgnt_datarate(__u8 mode)
 	extern u8 change_mgnt_datatrate;
 	change_mgnt_datatrate = mode;
 }
+
+#ifdef CONFIG_SOFTAP_KEEP_SILENT_TABLE
+void wext_enable_softap_slient_table(__u8 mode)
+{
+	extern u8 softap_keep_silent_table_enable;
+	softap_keep_silent_table_enable = mode;
+}
+
+void wext_set_softap_slient_table_interval(int interval)
+{
+	extern int softap_keep_silent_table_interval;
+	softap_keep_silent_table_interval = interval;
+}
+
+void wext_set_custom_country_code(__u8 mode)
+{
+	extern u8 rtw_set_custom_country_code_en;
+	rtw_set_custom_country_code_en = mode;
+}
+
+#endif

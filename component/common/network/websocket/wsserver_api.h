@@ -116,7 +116,7 @@ enum opcode_type {
 /**
  * @brief     This function is used to start an WS or WSS server.
  * @param[in] port: service port
- * @param[in] max_conn: max client connections allowed
+ * @param[in] max_conn: max client connections allowed, maximum value will be limited by MEMP_NUM_NETCONN in lwipopts.h
  * @param[in] stack_bytes: thread stack size in bytes
  * @param[in] secure: security mode for WS or WSS. Must be WS_SERVER_SECURE_NONE, WS_SERVER_SECURE_TLS, WS_SERVER_SECURE_TLS_VERIFY.
  * @return		0 : if successful

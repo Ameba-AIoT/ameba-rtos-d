@@ -95,8 +95,6 @@ SECTIONS
     GDMA_GetBlkSize = 0x1010c369;
     GDMA_ChnlRegister = 0x1010c3b9;
     GDMA_ChnlUnRegister = 0x1010c401;
-    GDMA_ChnlAlloc = 0x1010c43d;
-    GDMA_ChnlFree = 0x1010c4d9;
     GDMA_GetIrqNum = 0x1010c565;
     GPIO_INTMode = 0x1010c5a9;
     GPIO_INTConfig = 0x1010c641;
