@@ -21,9 +21,9 @@ void echo_data(ws_conn *conn, int data_len, enum opcode_type opcode)
 {
 	printf("\r\n>>>>>> Receiving: %s with length: %d from %d\n", conn->receivedData, data_len, conn->sock);
 	if(opcode == TEXT_FRAME)
-		ws_server_sendText((char*)conn->receivedData, data_len, 1, conn);
+		ws_server_sendText((char*)conn->receivedData, data_len, 0, conn);
 	else if(opcode == BINARY_FRAME)
-		ws_server_sendBinary(conn->receivedData, data_len, 1, conn);
+		ws_server_sendBinary(conn->receivedData, data_len, 0, conn);
 }
 
 static void example_wsserver_thread(void *param)

@@ -796,7 +796,7 @@ const T_FUN_GATT_SERVICE_CBS hids_cbs =
   */
 uint8_t hids_add_service(void *p_func)
 {
-    uint8_t service_id;
+    uint8_t service_id = 0;
     if (false == server_add_service(&service_id,
                                     (uint8_t *)hids_attr_table,
                                     hids_attr_tbl_size,

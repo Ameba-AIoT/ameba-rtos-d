@@ -287,7 +287,7 @@ VOID app_vdd1833_detect(VOID)
 
 void app_dslp_wake_check(void)
 {
-	DBG_8195A("BOOT_Reason:%x %x\n", BOOT_Reason(), BIT_BOOT_DSLP_RESET_HAPPEN);
+	DBG_8195A("BOOT_Reason:%x\n", BOOT_Reason());
 
 	/* set deep sleep wakeup status, you can use SOCPS_DsleepWakeStatusGet */
 	/* to get this status after this point, some function like: */

@@ -1622,6 +1622,27 @@ int wifi_get_associated_client_list(void * client_list_buffer, uint16_t buffer_l
 }
 
 //----------------------------------------------------------------------------//
+int wifi_get_ap_client_info(void * client_list_buffer, uint16_t buffer_length)
+{
+	/* To avoid gcc warnings */
+	( void ) buffer_length;
+
+	const char * ifname = WLAN0_NAME;
+	int ret = 0;
+	char buf[25];
+
+	if(wifi_mode == RTW_MODE_STA_AP) {
+		ifname = WLAN1_NAME;
+	}
+
+	rtw_memset(buf, 0, sizeof(buf));
+	snprintf(buf, 25, "get_ap_cli_info %x", (unsigned int)client_list_buffer);
+	ret = wext_private_command(ifname, buf, 0);
+
+	return ret;
+}
+
+//----------------------------------------------------------------------------//
 int wifi_get_ap_bssid(unsigned char *bssid)
 {
 	if( RTW_SUCCESS == wifi_is_ready_to_transceive(RTW_STA_INTERFACE)){
@@ -1810,6 +1831,13 @@ _WEAK void wifi_set_mib(void)
 #ifdef CONFIG_80211N_HT
 	wext_set_wifi_ampdu_tx(ENABLE);
 #endif
+
+#ifdef CONFIG_SOFTAP_KEEP_SILENT_TABLE
+	wext_enable_softap_slient_table(DISABLE);
+	wext_set_softap_slient_table_interval(80);
+#endif
+
+	wext_set_custom_country_code(DISABLE);
 }
 
 //----------------------------------------------------------------------------//
@@ -4475,6 +4503,18 @@ int wifi_get_txrpt_statistic(const char *ifname, rtw_fw_txrpt_stats_t *txrpt_sta
 	return rltk_wlan_txrpt_statistic(ifname, txrpt_stats);
 }
 
+void wifi_scan_country_code_and_set_channel_plan(void)
+{
+	wext_auto_set_adaptivity(ENABLE); 
+	wifi_scan_networks_with_extended_countryinfo();
+	printf("======== Scanned country code is ");
+	for (int i=0; i<2; i++){
+		printf("%c", read_country_code[i]);
+	}
+	printf(" ========\n");
+	wifi_set_channel_plan_by_country_code(read_country_code);
+}
+
 void wifi_set_channel_plan_by_country_code(unsigned char* country_code)
 {
 	int map_size = sizeof(country_map) / sizeof(country_map[0]);
@@ -4487,7 +4527,7 @@ void wifi_set_channel_plan_by_country_code(unsigned char* country_code)
 		}
 	}
 	if (country_code_found == 0){
-		printf("\n\rCountry is not found in the table");
+		printf("\n\rCountry is not found in the table, set as RTK Default");
 		wifi_set_country(RTW_COUNTRY_RTK_DEFAULT);
 	}
 
@@ -4543,8 +4583,10 @@ void wifi_scan_networks_with_extended_countryinfo(void)
 			if(memcmp(null_country_code, country_code, sizeof(read_country_code))){
 				if (!memcmp(default_country_code, country_code, sizeof(read_country_code))){
 					memcpy(read_country_code, default_country_code, sizeof(read_country_code));
-					if(scan_buf.buf)
+					if(scan_buf.buf){
 						rtw_free(scan_buf.buf);
+					}
+					rltk_wlan_enable_scan_with_extended_countryinfo(0);
 					return;
 				}
 				else
@@ -4560,8 +4602,11 @@ void wifi_scan_networks_with_extended_countryinfo(void)
 			memcpy(read_country_code, default_country_code, sizeof(read_country_code));
 		}
 	}
-	if(scan_buf.buf)
+	if(scan_buf.buf){
 		rtw_free(scan_buf.buf);
+	}
+
+	rltk_wlan_enable_scan_with_extended_countryinfo(0);
 	return;
 }
 

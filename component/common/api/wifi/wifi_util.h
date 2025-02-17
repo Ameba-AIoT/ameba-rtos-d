@@ -142,6 +142,12 @@ void wext_get_country_code(unsigned char* country_code_get);
 
 void wext_auto_set_adaptivity(__u8 mode);
 
+void wext_enable_softap_slient_table(__u8 mode);
+
+void wext_set_softap_slient_table_interval(int interval);
+
+void wext_set_custom_country_code(__u8 mode);
+
 extern int (*p_wlan_mgmt_filter)(__u8 *ie, __u16 ie_len, __u16 frame_type);
 extern int (*p_wlan_action_filter)(__u8 *ie, __u16 ie_len, __u16 frame_type);
 

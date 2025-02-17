@@ -73,7 +73,7 @@
 /******************************************************
  *                    Constants
  ******************************************************/
-#define SCAN_LONGEST_WAIT_TIME  (12000)
+#define SCAN_LONGEST_WAIT_TIME  (17000)
 
 
 #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
@@ -368,6 +368,15 @@ int wifi_set_txpower(int poweridx);
  * @return  RTW_ERROR: The result is not successfully got.
  */
 int wifi_get_associated_client_list(void * client_list_buffer, unsigned short buffer_length);
+
+/**
+ * @brief  Get the SoftAP client information.
+ * @param[out]  client_list_buffer: The location where the client information will be stored.
+ * @param[in]  buffer_length: The buffer length.
+ * @return  RTW_SUCCESS: The result is successfully got.
+ * @return  RTW_ERROR: The result is not successfully got.
+ */
+int wifi_get_ap_client_info(void * client_list_buffer, uint16_t buffer_length);
 
 /**
  * @brief Get connected AP's BSSID
@@ -1301,6 +1310,15 @@ typedef struct {
     char country_code[2];
     int count;
 } CountryCodeCount;
+
+/**
+* @brief  Call "wifi_scan_networks_with_extended_countryinfo" to scan the country code of surronding APs
+*         then call "wifi_set_channel_plan_by_country_code" to set the channel plan based on scanned country code
+*         Enable "wext_auto_set_adaptivity"
+* @param[in] 
+* @return 
+*/
+void wifi_scan_country_code_and_set_channel_plan(void);
 
 /**
 * @brief  Call "wifi_set_country" and set channel plan accordingly

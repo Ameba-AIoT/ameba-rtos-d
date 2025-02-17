@@ -391,12 +391,12 @@ bool hci_rtk_find_patch(uint8_t bt_hci_chip_id)
     extern unsigned char rtlbt_config[];
     extern unsigned int  rtlbt_config_len;
     const uint8_t no_patch_sing[4]= {0xFF, 0xFF, 0xFF, 0xFF};
-    uint8_t tmp_patch_head[8];
+    uint8_t tmp_patch_head[8] = {0};
 
 
-    uint8_t            *fw_buf;
+    uint8_t            *fw_buf = NULL;
     uint8_t            *config_buf;
-    uint16_t            fw_len;
+    uint16_t            fw_len = 0;
     uint32_t            fw_offset;
     uint16_t            config_len;
     uint32_t            lmp_subversion;;

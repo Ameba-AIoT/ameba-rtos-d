@@ -1,7 +1,8 @@
 
 #include "dhcps.h"
 #include "tcpip.h"
-
+#include "wifi_constants.h"
+extern rtw_mode_t wifi_mode;
 //static struct dhcp_server_state dhcp_server_state_machine;
 static uint8_t dhcp_server_state_machine = DHCP_SERVER_STATE_IDLE;
 /* recorded the client MAC addr(default sudo mac) */
@@ -75,7 +76,7 @@ static void mark_ip_in_table(uint8_t d)
 		printf("\r\n ip_table.ip_range[3] = 0x%x\r\n",ip_table.ip_range[3]);
 #endif	
 	} else if(128 < d && d <= 160) {
-		ip_table.ip_range[4] = MARK_RANGE5_IP_BIT(ip_table, d);	
+		ip_table.ip_range[4] = MARK_RANGE5_IP_BIT(ip_table, (d - 128));	
 #if (debug_dhcps)		
 		printf("\r\n ip_table.ip_range[4] = 0x%x\r\n",ip_table.ip_range[4]);
 #endif	
@@ -860,6 +861,15 @@ struct pbuf *udp_packet_buffer, struct ip_addr *sender_addr, uint16_t sender_por
 		return;  
 	}
 	if (sender_port == DHCP_CLIENT_PORT) {
+#if LWIP_VERSION_MAJOR >= 2
+		if(netif_get_idx(ip_current_input_netif()) == 0 && wifi_mode == RTW_MODE_STA_AP)
+#else
+		if(netif_get_idx(ip_current_netif()) == 0 && wifi_mode == RTW_MODE_STA_AP)
+#endif
+		{
+			pbuf_free(udp_packet_buffer);
+			return;
+		}
 		total_length_of_packet_buffer = udp_packet_buffer->tot_len;
 		if (udp_packet_buffer->next != NULL) {
 			merged_packet_buffer = pbuf_coalesce(udp_packet_buffer,

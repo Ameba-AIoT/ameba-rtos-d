@@ -32,6 +32,7 @@
 //#include <freertos/freertos_service.h>
 #include "wifi_constants.h"
 #include "dlist.h"
+#include "autoconf.h"
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -165,6 +166,16 @@ typedef struct
     unsigned int    count;         /**< Number of MAC addresses in the list    */
     rtw_mac_t mac_list[1];   /**< Variable length array of MAC addresses */
 } rtw_maclist_t;
+
+/**
+  * @brief  The structure is used to describe the ap client information.
+  */
+typedef struct
+{
+    unsigned int    count;         /**< Number of MAC addresses in the list    */
+    rtw_mac_t mac_list[AP_STA_NUM];     /**< MAC addresses array */
+    signed char rssi_list[AP_STA_NUM];    /**< RSSI array */
+} rtw_ap_client_info_t;
 
 /**
   * @brief  The structure is used to describe the bss info of the network.\n

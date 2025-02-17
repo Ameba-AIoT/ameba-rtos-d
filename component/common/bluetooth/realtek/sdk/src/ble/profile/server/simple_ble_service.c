@@ -25,8 +25,6 @@
 #define SIMPLE_BLE_SERVICE_CHAR_INDICATE_CCCD_INDEX     (SIMPLE_BLE_SERVICE_CHAR_V4_INDICATE_INDEX + 1)
 
 
-
-T_SERVER_ID simp_service_id;
 /**<  Value of simple read characteristic. */
 static uint8_t simple_char_read_value[SIMP_READ_V1_MAX_LEN];
 static uint16_t simple_char_read_len = 1;
@@ -464,6 +462,7 @@ const T_FUN_GATT_SERVICE_CBS simp_ble_service_cbs =
   */
 T_SERVER_ID simp_ble_service_add_service(void *p_func)
 {
+    T_SERVER_ID simp_service_id = 0;
     if (false == server_add_service(&simp_service_id,
                                     (uint8_t *)simple_ble_service_tbl,
                                     sizeof(simple_ble_service_tbl),
