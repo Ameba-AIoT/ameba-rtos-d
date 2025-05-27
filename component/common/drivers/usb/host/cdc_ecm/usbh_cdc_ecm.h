@@ -208,6 +208,9 @@ typedef struct {
 /* CDC ECM host */
 typedef struct {
     /* CDC ECM communication interface */
+    struct task_struct intr_task;
+    struct task_struct bulk_task;
+
     usbh_cdc_ecm_ep_t                   report_ep;
     usbh_cdc_ecm_ep_t                   tx_ep;
     usbh_cdc_ecm_ep_t                   rx_ep;

@@ -300,6 +300,13 @@ void rltk_mii_init(void)
 #endif
 }
 
+void rltk_mii_deinit(void)
+{
+#if defined(CONFIG_ETHERNET) && CONFIG_ETHERNET
+    rtw_mutex_free(&mii_tx_mutex);
+#endif
+}
+
 void rltk_mii_recv(struct eth_drv_sg *sg_list, int sg_len)
 {
 	(void) sg_list;

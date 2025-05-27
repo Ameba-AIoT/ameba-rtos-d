@@ -140,6 +140,7 @@ typedef struct rtw_wifi_setting {
 	rtw_security_t		security_type;
 	unsigned char 		password[RTW_MAX_PSK_LEN+1];
 	unsigned char		key_idx;
+
 }rtw_wifi_setting_t;
 #if defined(__IAR_SYSTEMS_ICC__) || defined(__GNUC__) || defined(__CC_ARM) || (defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050))
 #pragma pack()
@@ -287,8 +288,10 @@ typedef struct wowlan_pattern {
 } wowlan_pattern_t;
 
 typedef struct rtw_fw_txrpt_stats {
-	unsigned long tx_rty_cnt;             // tx retry count (due to HW limit, the retry times >=4 is calculated as 4)
-	int txrpt_rty_cnt_ready;              // used to sync txrpt retry count ready
+  unsigned long tx_rty_cnt;             // tx retry count (due to HW limit, the retry times >=4 is calculated as 4)
+  int txrpt_rty_cnt_ready;              // used to sync txrpt retry count ready
+  unsigned long tx_ok_cnt;
+  unsigned long tx_drop_cnt;
 }rtw_fw_txrpt_stats_t;
 
 /**

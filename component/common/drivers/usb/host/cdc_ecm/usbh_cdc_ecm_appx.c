@@ -80,6 +80,7 @@ static void usbh_cdc_ecm_appx_rx_thread(void *param)
 	RTK_LOGD(TAG, "Rx task started \n");
 
 	appx_cmd.task_flag = 1;
+	appx_cmd.task_alive = 1;
 
 	do{
 		i++;
@@ -104,7 +105,7 @@ static void usbh_cdc_ecm_appx_rx_thread(void *param)
 	}while(appx_cmd.task_flag);
 
 	RTK_LOGD(TAG, "Rx task exit!\n");
-
+	appx_cmd.task_alive = 0;
 	rtw_thread_exit();
 }
 
@@ -761,7 +762,17 @@ u8 usbh_cdc_ecm_appx_doinit(usbh_cdc_ecm_priv_data_t *priv)
 u8 usbh_cdc_ecm_appx_deinit(usb_host_t *host){
 	usbh_cdc_ecm_appx_t *atcmd = &appx_cmd;
 
-	appx_cmd.task_flag = 0;
+	atcmd->task_flag = 0;
+
+	if(atcmd->task_alive == 0){
+		atcmd->appx_task.task = NULL;
+	} else if (atcmd->appx_task.task != NULL) {
+		atcmd->task_alive = 0;
+		RTK_LOGI(TAG, "Del app task\n");
+		rtw_delete_task(&(atcmd->appx_task));
+		atcmd->appx_task.task = NULL;
+	}
+
 	usbh_cdc_ecm_appx_deinit_pipe(host);
 
 	if(atcmd->dongle_ctrl_buf) {
@@ -777,6 +788,8 @@ u8 usbh_cdc_ecm_appx_deinit(usb_host_t *host){
 		usb_os_mfree(atcmd->rx_ep.xfer_buf);
 		atcmd->rx_ep.xfer_buf = NULL;
 	}
+
+	RTK_LOGI(TAG, "Rx deinit\n");
 
 	return HAL_OK;
 }
@@ -880,14 +893,15 @@ u8 usbh_cdc_ecm_appx_transfer(usbh_cdc_ecm_host_t *ecm,u8* next){
 
 u8 usbh_cdc_ecm_appx_task(void){
 	int status;
-	struct task_struct appx_task;
+	usbh_cdc_ecm_appx_t *pappx_cmd = &appx_cmd;
 
-	status = rtw_create_task(&appx_task, "ecm_arx_thread", 256, USBH_ECM_APP_RX_THREAD_PRIORITY, (thread_func_t)usbh_cdc_ecm_appx_rx_thread, NULL);
+	status = rtw_create_task(&(pappx_cmd->appx_task), "ecm_arx_thread", 256, USBH_ECM_APP_RX_THREAD_PRIORITY, (thread_func_t)usbh_cdc_ecm_appx_rx_thread, NULL);
 	if (status != pdPASS) {
 		RTK_LOGE(TAG, "Fail to create rx thread\n");
 		return HAL_ERR_UNKNOWN;
 	}
 
+	RTK_LOGI(TAG, "APP Rx task create!\n");
 	return HAL_OK;
 }
 
