@@ -80,12 +80,14 @@ typedef enum {
 
 
 typedef struct {
+    struct task_struct appx_task;
     usbh_cdc_ecm_at_set_state_t   sub_status;
     usbh_cdc_ecm_ep_t             report_ep;
     usbh_cdc_ecm_ep_t             tx_ep;
     usbh_cdc_ecm_ep_t             rx_ep;
     volatile u8                   data_tx_done;
     u8                            task_flag;
+    u8                            task_alive;
 
     usbh_cdc_ecm_appx_param_t     *param_item;
     usbh_cdc_ecm_appx_param_t     *param_array;    //at port interface idx

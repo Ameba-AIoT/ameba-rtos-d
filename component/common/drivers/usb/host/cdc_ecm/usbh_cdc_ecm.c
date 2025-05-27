@@ -454,7 +454,7 @@ static u8 usbh_cdc_ecm_process(usb_host_t *host)
 			usbh_cdc_ecm_host.next_transfor = 0;
 			usbh_cdc_ecm_next_loop();
 		} else {
-			//no message, sleep to relase CPU
+			usb_os_sleep_ms(1);
 		}
 		break;
 
@@ -631,10 +631,11 @@ static void usbh_cdc_ecm_process_intr_in(usb_host_t *host)
 			}
 			if (len >= ep->ep_mps) {
 				ep->state = CDC_ECM_TRANSFER_STATE_XFER;
+				cdc->next_transfor = 1;
 			} else {
 				ep->state = CDC_ECM_TRANSFER_STATE_IDLE;
+				//finish
 			}
-			cdc->next_transfor = 1;
 		} else if (urb_state == USBH_URB_BUSY) {
 		} else if ((urb_state == USBH_URB_ERROR) || (urb_state == USBH_URB_STALL)) {
 			ep->state = CDC_ECM_TRANSFER_STATE_IDLE;
@@ -740,7 +741,7 @@ static void usbh_cdc_ecm_intr_rx_thread(void *param)
 	}while(cdc->notify_task_flag);
 
 	RTK_LOGI(TAG, "INTR rx task exit\n");
-	rtw_thread_exit();
+	//rtw_thread_exit();
 }
 
 static void usbh_cdc_ecm_bulk_rx_thread(void *param)
@@ -770,7 +771,7 @@ static void usbh_cdc_ecm_bulk_rx_thread(void *param)
 	}while(cdc->rx_task_flag);
 
 	RTK_LOGI(TAG, "BULK rx task exit\n");
-	rtw_thread_exit();
+	//rtw_thread_exit();
 }
 
 /* Exported functions --------------------------------------------------------*/
@@ -779,16 +780,15 @@ static void usbh_cdc_ecm_bulk_rx_thread(void *param)
 */
 u8 usbh_cdc_ecm_task(void){
 	int status;
-	struct task_struct intr_task;
-	struct task_struct bulk_task;
+	usbh_cdc_ecm_host_t *cdc = &usbh_cdc_ecm_host;
 
-	status = rtw_create_task(&intr_task, "ecm_irx_thread", 256, USBH_ECM_RX_THREAD_PRIORITY, (thread_func_t)usbh_cdc_ecm_intr_rx_thread, NULL);
+	status = rtw_create_task(&(cdc->intr_task), "ecm_irx_thread", 256, USBH_ECM_RX_THREAD_PRIORITY, (thread_func_t)usbh_cdc_ecm_intr_rx_thread, NULL);
 	if (status != pdPASS) {
 		RTK_LOGE(TAG, "Fail to create INTR Rx thread\n");
 		return HAL_ERR_UNKNOWN;
 	}
 
-	status = rtw_create_task(&bulk_task, "ecm_brx_thread", 256, USBH_ECM_RX_THREAD_PRIORITY, (thread_func_t)usbh_cdc_ecm_bulk_rx_thread, NULL);
+	status = rtw_create_task(&(cdc->bulk_task), "ecm_brx_thread", 256, USBH_ECM_RX_THREAD_PRIORITY, (thread_func_t)usbh_cdc_ecm_bulk_rx_thread, NULL);
 	if (status != pdPASS) {
 		RTK_LOGE(TAG, "Fail to create BULK RX thread\n");
 		goto delete_intr_task_exit;
@@ -805,10 +805,12 @@ u8 usbh_cdc_ecm_task(void){
 	return HAL_OK;
 
 delete_bukk_task_exit:
-	rtw_delete_task(&bulk_task);
+	rtw_delete_task(&(cdc->bulk_task));
+	cdc->bulk_task.task = NULL;
 
 delete_intr_task_exit:
-	rtw_delete_task(&intr_task);
+	rtw_delete_task(&(cdc->intr_task));
+	cdc->intr_task.task = NULL;
 
 	return HAL_ERR_UNKNOWN;
 }
@@ -856,6 +858,15 @@ u8 usbh_cdc_ecm_deinit(void)
 	//stop the task
 	cdc->rx_task_flag = 0;
 	cdc->notify_task_flag = 0;
+
+	if (cdc->intr_task.task != NULL) {
+		rtw_delete_task(&(cdc->intr_task));
+		cdc->intr_task.task = NULL;
+	}
+	if (cdc->bulk_task.task != NULL) {
+		rtw_delete_task(&(cdc->bulk_task));
+		cdc->bulk_task.task = NULL;
+	}
 
 	if ((cdc->cb != NULL) && (cdc->cb->deinit != NULL)) {
 		cdc->cb->deinit();

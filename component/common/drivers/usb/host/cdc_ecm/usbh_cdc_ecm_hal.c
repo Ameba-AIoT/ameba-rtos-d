@@ -38,6 +38,8 @@
 #pragma pack(push)
 #pragma pack(1)
 typedef struct {
+	struct task_struct 			ecm_init_task;
+	struct task_struct 			hotplug_task;
 	usb_report_usbdata			report_data;  			//usb rx callback function
 	usbh_cdc_ecm_priv_data_t	*priv_handle;
 
@@ -45,6 +47,7 @@ typedef struct {
 	volatile u8 				cdc_ecm_is_ready;		//ecm attached status
 	volatile u8 				ecm_hw_connect;		//ecm ethernet connect status:0 disconnect,1 connect
 	volatile u8 				ecm_init_success;		//usb init success
+	volatile u8 				ecm_init_task_alive;		//usb init success
 #if CONFIG_USBH_CDC_ECM_HOT_PLUG_TEST
 	u8   				        hotplug_task_flag;		//usb init success
 #endif
@@ -228,14 +231,13 @@ static void usbh_cdc_ecm_hotplug_thread(void *param)
 			break;
 		}
 	}while(usbh_cdc_ecm_host_user.hotplug_task_flag);
-	rtw_thread_exit();
+	//rtw_thread_exit();
 }
 static u8 usbh_cdc_ecm_create_hotplug_task(void)
 {
 	int status;
-	struct task_struct hotplug_task;
 
-	status = rtw_create_task(&hotplug_task, "ecm_hotplug_thread", 256, USBH_ECM_HOTPLUG_THREAD_PRIORITY, (thread_func_t)usbh_cdc_ecm_hotplug_thread, NULL);
+	status = rtw_create_task(&(usbh_cdc_ecm_host_user.hotplug_task), "ecm_hotplug_thread", 256, USBH_ECM_HOTPLUG_THREAD_PRIORITY, (thread_func_t)usbh_cdc_ecm_hotplug_thread, NULL);
 	if (status != pdPASS) {
 		RTK_LOGE(TAG, "Fail to create hotplug thread\n");
 		return HAL_ERR_UNKNOWN;
@@ -282,6 +284,7 @@ static void usbh_cdc_ecm_class_init_thread(void *param)
 {
 	int status;
 	UNUSED(param);
+	usbh_cdc_ecm_host_user.ecm_init_task_alive = 1;
 
 	status = usbh_cdc_ecm_class_init();
 	if (USBH_CORE_INIT_FAIL == status) {
@@ -304,18 +307,28 @@ usb_deinit_exit:
 	usbh_deinit();
 
 example_exit:
+	RTK_LOGI(TAG, "Init task exit\n");
+	usbh_cdc_ecm_host_user.ecm_init_task_alive = 0;
 	rtw_thread_exit();
 }
 static u8 usbh_cdc_ecm_do_sub_deinit(void)
 {
 	usbh_cdc_ecm_host_user.ecm_init_success = 0;
+	if(usbh_cdc_ecm_host_user.ecm_init_task_alive == 0){
+		usbh_cdc_ecm_host_user.ecm_init_task.task = NULL;
+	} else if (usbh_cdc_ecm_host_user.ecm_init_task.task != NULL) {
+		RTK_LOGI(TAG, "Del init task\n");
+		usbh_cdc_ecm_host_user.ecm_init_task_alive = 0;
+		rtw_delete_task(&(usbh_cdc_ecm_host_user.ecm_init_task));
+		usbh_cdc_ecm_host_user.ecm_init_task.task = NULL;
+	}
+
 	return usbh_cdc_ecm_class_deinit();
 }
 static u8 usbh_cdc_ecm_do_sub_init(usb_report_usbdata ecm_cb,usbh_cdc_ecm_priv_data_t *priv)
 {
 	int status;
-	struct task_struct task;
-
+	
 	usbh_cdc_ecm_host_user.report_data = ecm_cb ;
 	usbh_cdc_ecm_host_user.priv_handle = priv ;
 
@@ -325,7 +338,7 @@ static u8 usbh_cdc_ecm_do_sub_init(usb_report_usbdata ecm_cb,usbh_cdc_ecm_priv_d
 
 	RTK_LOGI(TAG, "USB host init...\n");
 	if (0 == usbh_cdc_ecm_host_user.ecm_init_success) {
-		status = rtw_create_task(&task, "ecm_init_task", 512, USBH_ECM_INIT_THREAD_PRIORITY, usbh_cdc_ecm_class_init_thread, NULL);
+		status = rtw_create_task(&(usbh_cdc_ecm_host_user.ecm_init_task), "ecm_init_task", 512, USBH_ECM_INIT_THREAD_PRIORITY, usbh_cdc_ecm_class_init_thread, NULL);
 		if (status != pdPASS) {
 			RTK_LOGE(TAG, "Fail to create USB host cdc_ecm init thread: %d\n", status);
 			return 1 ;
@@ -345,9 +358,14 @@ static u8 usbh_cdc_ecm_do_sub_init(usb_report_usbdata ecm_cb,usbh_cdc_ecm_priv_d
 u8 usbh_cdc_ecm_do_deinit(void)//todo destory all usb task
 {
 #if CONFIG_USBH_CDC_ECM_HOT_PLUG_TEST
+	if (usbh_cdc_ecm_host_user.hotplug_task.task != NULL) {
+		RTK_LOGI(TAG, "Del Hotplug task\n");
+		rtw_delete_task(&(usbh_cdc_ecm_host_user.hotplug_task));
+		usbh_cdc_ecm_host_user.hotplug_task.task = NULL;
+	}
 	usbh_cdc_ecm_host_user.hotplug_task_flag = 1;
-	//rtw_delete_task(&bulk_task);
 #endif
+
 	usbh_cdc_ecm_do_sub_deinit();
 
 	rtw_free_sema(&cdc_ecm_detach_sema);

@@ -89,7 +89,7 @@ mbedtls_pk_context* NS_ENTRY secure_mbedtls_pk_parse_key(void)
 	if(client_pk) {
 		mbedtls_pk_init(client_pk);
 #if defined(MBEDTLS_VERSION_NUMBER) && (MBEDTLS_VERSION_NUMBER>=0x03010000)
-		if(mbedtls_pk_parse_key(client_pk, (unsigned char const *)client_key_s, strlen(client_key_s) + 1, NULL, 0, rtw_get_random_bytes_f_rng, (void*)1 ) != 0) {
+		if(mbedtls_pk_parse_key(client_pk, (unsigned char const *)client_key_s, strlen(client_key_s) + 1, NULL, 0, _random, (void*)1 ) != 0) {
 #else
 		if(mbedtls_pk_parse_key(client_pk, (unsigned char const *)client_key_s, strlen(client_key_s) + 1, NULL, 0) != 0) {
 #endif
