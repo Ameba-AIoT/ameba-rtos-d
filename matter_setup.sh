@@ -2,71 +2,66 @@
 
 if [ "$#" -lt 1 ]; then
   echo "Usage: $0 <IC type>"
-  echo "IC type: amebaz2 / amebaz2plus / amebad"
+  echo "IC type: amebad"
   exit 1
 fi
 
 AMEBA="$1"
 
-files_to_delete=(
-  "$PWD/component/soc/realtek/8710c/misc/utilities/include/ctype.h"
-)
-
-BASE_DIR="$PWD/project"
-
-delete_files() {
-  for file_path in "${files_to_delete[@]}"; do
-    if [ -e "$file_path" ]; then
-      rm "$file_path"
-      echo "File $file_path removed."
-    else
-      echo "File $file_path does not exist."
-    fi
-  done
-}
-
-modify_makefiles() {
-  find "$BASE_DIR" -type f -name "Makefile" | while read -r FILE; do
-    if grep -q "ENABLE_MATTER = 0" "$FILE"; then
-      echo "Modifying $FILE"
-      sed -i 's/^ENABLE_MATTER = 0/ENABLE_MATTER = 1/' "$FILE"
-    fi
-  done
-}
-
-case "$AMEBA" in
-  amebaz2 | amebaz2plus)
-    echo "Configuring for $AMEBA"
-    delete_files
-    if [ "$AMEBA" = "amebaz2plus" ]; then
-      modify_makefiles
-    fi
-    ;;
-  amebad)
-    echo "Configuring for $AMEBA"
-    ;;
-  *)
-    echo "Invalid argument. Expected 'amebaz2', 'amebaz2plus', or 'amebad'."
-    exit 1
-    ;;
-esac
-
-
-if [ ! -d third_party ];then
-    mkdir third_party
+if [ "$AMEBA" != "amebad" ]; then
+  echo "Invalid IC type. Expected: amebad."
+  exit 1
 else
-    rm third_party/connectedhomeip
+  AMEBA_EXAMPLE="amebaD"
 fi
 
-cd third_party
-rm -rf connectedhomeip
-ln -s ../../connectedhomeip connectedhomeip
+REPO_NAME=$(basename -s .git "$(git rev-parse --show-toplevel 2>/dev/null)")
 
-cd ../
+CHIP_LINK="$PWD/third_party/connectedhomeip"
+CHIP_SRC="../../connectedhomeip"
 
-if [ ! -d component/common/application/matter ] || [ -z "$(find component/common/application/matter -mindepth 1)" ]; then
-    mkdir -p component/common/application/matter
-    git clone https://github.com/Ameba-AIoT/ameba-rtos-matter.git component/common/application/matter
+PROJECT_DIR="$PWD/project/realtek_${AMEBA_EXAMPLE}_v0_example"
+MATTER_DIR="$PWD/component/common/application/matter"
+MATTER_PROJECT_DIR="$MATTER_DIR/project/${AMEBA}"
+MATTER_SCRIPT="$MATTER_DIR/tools/scripts/matter_version_selection.sh"
+
+# --- 1: Setup third_party softlink ---
+mkdir -p third_party
+rm -rf "$CHIP_LINK"
+ln -s "$CHIP_SRC" "$CHIP_LINK"
+
+# --- 2: Clone Ameba Matter repo if not present ---
+if [ ! -d "$MATTER_DIR" ]; then
+  echo "Cloning Matter repository..."
+  git clone https://github.com/Ameba-AIoT/ameba-rtos-matter.git "$MATTER_DIR"
 fi
+
+# --- 3: Run matter version selection script ---
+cd "$MATTER_DIR" || exit 1
+
+if [ -f "$MATTER_SCRIPT" ]; then
+  bash "$MATTER_SCRIPT" "$AMEBA" "$REPO_NAME"
+else
+  echo "Error: $MATTER_SCRIPT not found."
+  exit 1
+fi
+
+# --- 4: Ensure correct Matter branch ---
+MATTER_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
+  if [ "$current_branch" != "$MATTER_BRANCH" ]; then
+    echo "Switching to branch '$MATTER_BRANCH'"
+    git checkout "$MATTER_BRANCH" || exit 1
+  fi
+else
+  echo "Matter repo seems broken. Re-cloning..."
+  cd - > /dev/null || exit 1
+  rm -rf "$MATTER_DIR"
+  git clone -b "$MATTER_BRANCH" https://github.com/Ameba-AIoT/ameba-rtos-matter.git "$MATTER_DIR"
+fi
+
+cd - > /dev/null || exit 1
 
 echo "Matter setup complete"

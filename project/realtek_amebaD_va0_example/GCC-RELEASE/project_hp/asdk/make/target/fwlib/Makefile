@@ -29,9 +29,6 @@ CSRC +=	$(DIR)/rtl8721dhp_i2s.c \
 	$(DIR)/rtl8721dhp_sdio.c \
 	$(DIR)/rtl8721dhp_ssi.c \
 	$(DIR)/rtl8721dhp_lcdc.c \
-	$(DIR)/rtl8721dhp_usi_uart.c \
-	$(DIR)/rtl8721dhp_usi_ssi.c \
-	$(DIR)/rtl8721dhp_usi_i2c.c \
 	$(DIR)/rtl8721dhp_audio.c \
 	$(DIR)/rtl8721dhp_sdio_host.c \
 	$(DIR)/rtl8721dhp_sd.c	\
