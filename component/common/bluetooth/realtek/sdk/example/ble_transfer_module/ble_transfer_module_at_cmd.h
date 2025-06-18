@@ -8,6 +8,9 @@ extern "C" {
 #include "atcmd_wifi.h"
 #include "gap_le_types.h"
 
+void bt_at_iouart_dump_hex(const char *start_str, void *buf, uint16_t len, bool reverse, const char *end_str);
+void bt_at_iouart_dump(uint8_t unit, const char *str, void *buf, uint16_t len);
+
 /* 0x11223344...\r\n */
 #define BT_AT_DUMP_HEXN(buf, len)             bt_at_iouart_dump_hex("0x", buf, len, false, "\r\n")
 /* 0x11223344... */

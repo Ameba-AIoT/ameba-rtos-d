@@ -233,6 +233,7 @@ typedef struct ieee80211_frame_info{
 #if defined(CONFIG_UNSUPPORT_PLCPHDR_RPT) && CONFIG_UNSUPPORT_PLCPHDR_RPT
 	rtw_rx_type_t type;
 #endif
+	unsigned char data_rate;
 }ieee80211_frame_info_t;
 
 #if defined(CONFIG_UNSUPPORT_PLCPHDR_RPT) && CONFIG_UNSUPPORT_PLCPHDR_RPT

@@ -103,6 +103,14 @@ ifeq ($(CONFIG_BLE_TRANSFER_MODULE),y)
 	make -C ble_transfer_module all
 endif
 
+ifeq ($(CONFIG_BLE_WIFIMATE_DEVICE),y)
+	make -C ble_wifimate_device all
+endif
+
+ifeq ($(CONFIG_BLE_WIFIMATE_CONFIGURATOR),y)
+	make -C ble_wifimate_configurator all
+endif
+
 endif
 
 #*****************************************************************************#
@@ -199,6 +207,14 @@ endif
 
 ifeq ($(CONFIG_BLE_TRANSFER_MODULE),y)
 	make -C ble_transfer_module clean
+endif
+
+ifeq ($(CONFIG_BLE_WIFIMATE_DEVICE),y)
+	make -C ble_wifimate_device clean
+endif
+
+ifeq ($(CONFIG_BLE_WIFIMATE_CONFIGURATOR),y)
+	make -C ble_wifimate_configurator clean
 endif
 
 endif

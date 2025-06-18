@@ -196,7 +196,7 @@ typedef struct {
   * @retval others Service id assigned by stack.
   *
   */
-T_SERVER_ID ble_tranfer_module_service_add_service(void *p_func);
+T_SERVER_ID ble_transfer_module_service_add_service(void *p_func);
 
 /**
   * @brief send notification of simple notify characteristic value.
@@ -237,15 +237,14 @@ bool ble_tranfer_module_service_send_v4_indicate(uint8_t conn_id, T_SERVER_ID se
 bool ble_transfer_module_get_uuid(uint8_t attr, uint16_t *uuid);
 
 /**
-  * @brief get uuid of ble transfer service.
+  * @brief set uuid of ble transfer service.
   *
   * @param[in] attr              atrribute type
   * @param[in] uuid              uuid to set
-  * @return notification action result
-  * @retval 1 true
-  * @retval 0 false
+  * @return set uuid result
   */
-bool ble_transfer_module_set_uuid(uint8_t attr, uint16_t uuid);
+uint16_t ble_transfer_module_set_uuid(uint8_t attr, uint16_t uuid);
+
 /** @} End of Transfer_Service_Exported_Functions */
 
 /**
@@ -253,11 +252,9 @@ bool ble_transfer_module_set_uuid(uint8_t attr, uint16_t uuid);
   *
   * @param[in] len               length of read value
   * @param[in] data              read value
-  * @return notification action result
-  * @retval 1 true
-  * @retval 0 false
+  * @return update read value result
   */
-bool ble_transfer_module_update_read_val(uint8_t len, uint8_t *data);
+uint16_t ble_transfer_module_update_read_val(uint8_t len, uint8_t *data);
 
 /** @} End of Transfer_Service */
 #ifdef __cplusplus

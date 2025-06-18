@@ -16,6 +16,9 @@
 #include <ble_transfer_module_service.h>
 #include <ble_transfer_module_at_cmd.h>
 #include <gap.h>
+#include <ble_transfer_module_app.h>
+#include <gap_conn_le.h>
+#include <atcmd_bt.h>
 
 transfer_module_uuid_t transfer_module_uuids = {
 	.service_uuid         =  BLE_TRANSFER_MODULE_UUID_SRV,
@@ -223,9 +226,15 @@ bool ble_transfer_module_get_uuid(uint8_t attr, uint16_t *uuid)
 	return ret;
 }
 
-bool ble_transfer_module_set_uuid(uint8_t attr, uint16_t uuid)
+extern bool ble_transfer_app_is_enable(void);
+uint16_t ble_transfer_module_set_uuid(uint8_t attr, uint16_t uuid)
 {
-	uint16_t ret = true;
+	uint16_t ret = BTM_OK;
+
+	if (ble_transfer_app_is_enable()) {
+		printf("[APP] Transfer module set uuid fail, please set uuid before bt init\r\n");
+		return BTM_FAIL;
+	}
 
 	switch (attr) {
 	case BLE_TRANSFER_MODULE_ATTR_SERVICE:
@@ -245,27 +254,27 @@ bool ble_transfer_module_set_uuid(uint8_t attr, uint16_t uuid)
 		break;
 	default:
 		printf("[APP] Invalid transfer module attribute attr=%d\r\n", attr);
-		ret = false;
+		ret = BTM_ERR_PARAM_INVALID;
 		break;
 	}
 	return ret;
 }
 
-bool ble_transfer_module_update_read_val(uint8_t len, uint8_t *data)
+uint16_t ble_transfer_module_update_read_val(uint8_t len, uint8_t *data)
 {
 	if (!len || !data) {
-		return false;
+		return BTM_ERR_PARAM_INVALID;
 	}
 
 	if (len > TRANSFER_READ_V1_MAX_LEN) {
-		return false;
+		return BTM_ERR_PARAM_INVALID;
 	}
 
 	transfer_module_read_val.len = len;
 	memset(transfer_module_read_val.buf, 0, sizeof(transfer_module_read_val.buf));
 	memcpy(transfer_module_read_val.buf, data, len);
 
-	return true;
+	return BTM_OK;
 }
 
 void ble_transfer_modlule_set_service_tbl(void)
@@ -319,7 +328,7 @@ T_APP_RESULT  ble_tranfer_module_service_attr_read_cb(uint8_t conn_id, T_SERVER_
             callback_data.msg_data.read.read_offset = offset;
             callback_data.conn_id = conn_id;
             if (pfn_ble_transfer_module_service_cb)
-            {   
+            {
                 pfn_ble_transfer_module_service_cb(service_id, (void *)&callback_data);
             }
             *pp_value = transfer_module_read_val.buf;
@@ -327,8 +336,10 @@ T_APP_RESULT  ble_tranfer_module_service_attr_read_cb(uint8_t conn_id, T_SERVER_
         }
         break;
     }
-    at_printf("+BLEGATTS:read_rsp,0,%d,%d,%d,%d\r\n",
-				TRANSFER_MODULE_APP_ID, conn_handle, attrib_index, err_code);
+    if (!err_code) {
+        BT_AT_PRINT("[$]+BLEGATTS:read,%d,%d,%d\r\n",
+                    TRANSFER_MODULE_APP_ID, conn_handle, attrib_index);
+    }
 
     return (cause);
 }
@@ -359,7 +370,6 @@ T_APP_RESULT ble_tranfer_module_service_attr_write_cb(uint8_t conn_id, T_SERVER_
     T_APP_RESULT  cause = APP_RESULT_SUCCESS;
     APP_PRINT_INFO1("ble_tranfer_module_service_attr_write_cb write_type = 0x%x", write_type);
     *p_write_ind_post_proc = transfer_write_post_callback;
-    uint8_t err_code = 0;
     uint16_t conn_handle = le_get_conn_handle(conn_id);
 
     if (BLE_TRANSFER_MODULE_SERVICE_CHAR_V2_WRITE_INDEX == attrib_index)
@@ -384,7 +394,7 @@ T_APP_RESULT ble_tranfer_module_service_attr_write_cb(uint8_t conn_id, T_SERVER_
                 pfn_ble_transfer_module_service_cb(service_id, (void *)&callback_data);
             }
 
-            at_printf("+BLEGATTS:write,%d,%d,%d,%d,%d",
+            BT_AT_PRINT("[$]+BLEGATTS:write,%d,%d,%d,%d,%d",
 					TRANSFER_MODULE_APP_ID, conn_handle, attrib_index,
 					write_type, length);
             BT_AT_DUMP("", p_value, length);
@@ -396,14 +406,8 @@ T_APP_RESULT ble_tranfer_module_service_attr_write_cb(uint8_t conn_id, T_SERVER_
                          attrib_index,
                          length);
         cause = APP_RESULT_ATTR_NOT_FOUND;
-        err_code = ATT_ERR_ATTR_NOT_FOUND;
     }
-    if(write_type == WRITE_REQUEST || write_type == WRITE_LONG) {
-        at_printf("+BLEGATTS:write_rsp,0,%d,%d,%d,%d,%d\r\n",
-					TRANSFER_MODULE_APP_ID,
-					conn_handle, attrib_index,
-					write_type, err_code);
-    }
+
     return cause;
 }
 
@@ -465,7 +469,6 @@ void ble_tranfer_module_service_cccd_update_cb(uint8_t conn_id, T_SERVER_ID serv
     callback_data.conn_id = conn_id;
     callback_data.msg_type = SERVICE_CALLBACK_TYPE_INDIFICATION_NOTIFICATION;
     APP_PRINT_INFO2("ble_tranfer_module_service_cccd_update_cb: index = %d, cccbits 0x%x", index, cccbits);
-    uint8_t noti_indi_en = 0;
     uint16_t conn_handle = le_get_conn_handle(conn_id);
 
     switch (index)
@@ -474,38 +477,26 @@ void ble_tranfer_module_service_cccd_update_cb(uint8_t conn_id, T_SERVER_ID serv
         {
             if (cccbits & GATT_CLIENT_CHAR_CONFIG_NOTIFY)
             {
-                // Enable Notification
-                noti_indi_en = 1;
                 callback_data.msg_data.notification_indification_index = TRANSFER_NOTIFY_INDICATE_V3_ENABLE;
             }
             else
             {
-                // Disable Notification
-                noti_indi_en = 0;
                 callback_data.msg_data.notification_indification_index = TRANSFER_NOTIFY_INDICATE_V3_DISABLE;
             }
             is_handled = true;
-            at_printf("+BLEGATTS:cccd,notify,%d,%d,%d,%d\r\n",
-					noti_indi_en, TRANSFER_MODULE_APP_ID, conn_handle, index);
         }
         break;
     case BLE_TRANSFER_MODULE_SERVICE_CHAR_INDICATE_CCCD_INDEX:
         {
             if (cccbits & GATT_CLIENT_CHAR_CONFIG_INDICATE)
             {
-                // Enable Indication
-                noti_indi_en = 1;
                 callback_data.msg_data.notification_indification_index = TRANSFER_NOTIFY_INDICATE_V4_ENABLE;
             }
             else
             {
-                // Disable Indication
-                noti_indi_en = 0;
                 callback_data.msg_data.notification_indification_index = TRANSFER_NOTIFY_INDICATE_V4_DISABLE;
             }
             is_handled =  true;
-            at_printf("+BLEGATTS:cccd,indicate,%d,%d,%d,%d\r\n",
-					noti_indi_en, TRANSFER_MODULE_APP_ID, conn_handle, index);
         }
         break;
 

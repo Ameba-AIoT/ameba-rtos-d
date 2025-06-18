@@ -36,4 +36,6 @@ IFLAGS += \
    -I$(BLEDIR)/sdk/example/bt_ota/bt_ota_client \
    -I$(BLEDIR)/sdk/example/bt_ota/bt_ota_server \
    -I$(BLEDIR)/sdk/example/ble_matter_adapter \
-   -I$(BLEDIR)/sdk/example/ble_transfer_module
+   -I$(BLEDIR)/sdk/example/ble_transfer_module \
+   -I$(BLEDIR)/sdk/example/ble_wifimate/ble_wifimate_device \
+   -I$(BLEDIR)/sdk/example/ble_wifimate/ble_wifimate_configurator

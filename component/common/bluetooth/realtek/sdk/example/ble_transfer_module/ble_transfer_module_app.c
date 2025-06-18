@@ -36,6 +36,7 @@
 #include "gatt_builtin_services.h"
 #include "ble_central_at_cmd.h"
 #include "ble_peripheral_at_cmd.h"
+#include <atcmd_bt.h>
 
 /** @defgroup  CENTRAL_CLIENT_APP Central Client Application
     * @brief This file handles BLE central client application routines.
@@ -72,13 +73,13 @@ void _print_uuid(uint8_t type, uint8_t *uuid)
 {
 	if (type == 0) {
 		printf("%04x\r\n", LE_TO_U16(uuid));
-		at_printf("%04x\r\n", LE_TO_U16(uuid));
+		BT_AT_PRINT("%04x\r\n", LE_TO_U16(uuid));
 	} else if (type == 2) {
 		printf("%08x-%04x-%04x-%04x-%04x%08x\r\n",
 				LE_TO_U32(uuid + 12), LE_TO_U16(uuid + 10),
 				LE_TO_U16(uuid + 8), LE_TO_U16(uuid + 6),
 				LE_TO_U16(uuid + 4), LE_TO_U32(uuid));
-		at_printf("%08x-%04x-%04x-%04x-%04x%08x\r\n",
+		BT_AT_PRINT("%08x-%04x-%04x-%04x-%04x%08x\r\n",
 					LE_TO_U32(uuid + 12), LE_TO_U16(uuid + 10),
 					LE_TO_U16(uuid + 8), LE_TO_U16(uuid + 6),
 					LE_TO_U16(uuid + 4), LE_TO_U32(uuid));
@@ -138,9 +139,6 @@ void ble_transfer_app_handle_io_msg(T_IO_MSG io_msg)
  */
 void ble_transfer_app_handle_dev_state_evt(T_GAP_DEV_STATE new_state, uint16_t cause)
 {
-    int ret = 1;
-    T_GAP_ADTYPE adv_type;
-    T_GAP_SCAN_MODE scan_type;
     APP_PRINT_INFO3("ble_transfer_dev_state_evt: init state  %d, scan state %d, cause 0x%x",
                     new_state.gap_init_state,
                     new_state.gap_scan_state, cause);
@@ -159,9 +157,6 @@ void ble_transfer_app_handle_dev_state_evt(T_GAP_DEV_STATE new_state, uint16_t c
                             bt_addr[2],
                             bt_addr[1],
                             bt_addr[0]);
-			ret = le_adv_start();
-			if(ret == GAP_CAUSE_SUCCESS)
-				printf("START ADV!!\r\n");
         }
     }
 
@@ -172,34 +167,36 @@ void ble_transfer_app_handle_dev_state_evt(T_GAP_DEV_STATE new_state, uint16_t c
             {
                 APP_PRINT_INFO0("GAP scan start failed");
                 printf("GAP scan start failed\r\n");
-                le_scan_get_param(GAP_PARAM_SCAN_MODE, &scan_type);
-                at_printf("+BLEGAP:scan,start,%d,%d\r\n", (cause == 0) ? 0 : -1, scan_type);
             }
             else if (new_state.gap_scan_state == GAP_SCAN_STATE_SCANNING)
             {
                 APP_PRINT_INFO0("GAP scan start");
                 printf("GAP scan start\r\n");
-                le_scan_get_param(GAP_PARAM_SCAN_MODE, &scan_type);
-                at_printf("+BLEGAP:scan,start,0,%d\r\n", scan_type);
             }
         } else if (ble_transfer_gap_dev_state.gap_scan_state == GAP_SCAN_STATE_STOP) {
             if (new_state.gap_scan_state == GAP_SCAN_STATE_IDLE)
             {
                 APP_PRINT_INFO0("GAP scan stop");
                 printf("GAP scan stop\r\n");
-                at_printf("+BLEGAP:scan,stop,0,0x%x\r\n", BLE_TRANSFER_MODULE_SCAN_STOP_BY_HOST);
             }
             else if (new_state.gap_scan_state == GAP_SCAN_STATE_SCANNING)
             {
                 APP_PRINT_INFO0("GAP scan stop failed");
                 printf("GAP scan stop failed\r\n");
-                at_printf("+BLEGAP:scan,stop,%d,%x\r\n", (cause == 0) ? 0 : -1, BLE_TRANSFER_MODULE_SCAN_STOP_BY_HOST);
             }
         } else if (ble_transfer_gap_dev_state.gap_scan_state == GAP_SCAN_STATE_SCANNING && new_state.gap_scan_state == GAP_SCAN_STATE_IDLE) {
                 APP_PRINT_INFO0("GAP scan stop");
                 printf("GAP scan stop\r\n");
-                at_printf("+BLEGAP:scan,stop,0,0x%x\r\n", BLE_TRANSFER_MODULE_SCAN_STOP_BY_DURATION);
         }
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+        if ((new_state.gap_scan_state == GAP_SCAN_STATE_IDLE) ||
+            (new_state.gap_scan_state == GAP_SCAN_STATE_SCANNING)) {
+            if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GAP_SCAN)) {
+                bt_at_sync_set_result_by_evt_cause(cause);
+                bt_at_sync_sem_give();
+            }
+        }
+#endif
     }
 
     if (ble_transfer_gap_dev_state.gap_adv_state != new_state.gap_adv_state)
@@ -210,16 +207,11 @@ void ble_transfer_app_handle_dev_state_evt(T_GAP_DEV_STATE new_state, uint16_t c
             {
                 APP_PRINT_INFO0("GAP adv stoped: because connection created");
                 printf("GAP adv stoped: because connection created\r\n");
-                at_printf("+BLEGAP:adv,stop,%d,0x%x\r\n", (cause == 0) ? 0 : -1, BLE_TRANSFER_MODULE_ADV_STOP_BY_CONN);
             }
             else if(ble_transfer_gap_dev_state.gap_adv_state == GAP_ADV_STATE_STOP)
             {
                 APP_PRINT_INFO0("GAP adv stoped");
                 printf("GAP adv stopped\r\n");
-                at_printf("+BLEGAP:adv,stop,%d,0x%x\r\n", (cause == 0) ? 0 : -1, BLE_TRANSFER_MODULE_ADV_STOP_BY_HOST);
-            }else if (ble_transfer_gap_dev_state.gap_adv_state == GAP_ADV_STATE_START) {
-                le_adv_get_param(GAP_PARAM_ADV_EVENT_TYPE, &adv_type);
-                at_printf("+BLEGAP:adv,start,%d,%d\r\n", (cause == 0) ? 0 : -1, adv_type);
             }
         }
         else if (new_state.gap_adv_state == GAP_ADV_STATE_ADVERTISING)
@@ -227,13 +219,18 @@ void ble_transfer_app_handle_dev_state_evt(T_GAP_DEV_STATE new_state, uint16_t c
             if(ble_transfer_gap_dev_state.gap_adv_state == GAP_ADV_STATE_START) {
                 APP_PRINT_INFO0("GAP adv start");
                 printf("GAP adv start\r\n");
-
-                le_adv_get_param(GAP_PARAM_ADV_EVENT_TYPE, &adv_type);
-                at_printf("+BLEGAP:adv,start,0,%d\r\n", adv_type);
-            } else if(ble_transfer_gap_dev_state.gap_adv_state == GAP_ADV_STATE_STOP) {
-                at_printf("+BLEGAP:adv,stop,%d,0x%x\r\n", (cause == 0) ? 0 : -1, BLE_TRANSFER_MODULE_ADV_STOP_BY_HOST);
             }
-        } 
+        }
+        printf("new_state.gap_adv_state=%d\r\n", new_state.gap_adv_state);
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+        if ((new_state.gap_adv_state == GAP_ADV_STATE_IDLE) ||
+            (new_state.gap_adv_state == GAP_ADV_STATE_ADVERTISING)) {
+            if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GAP_ADV)) {
+                bt_at_sync_set_result_by_evt_cause(cause);
+                bt_at_sync_sem_give();
+            }
+        }
+#endif
     }
 
     ble_transfer_gap_dev_state = new_state;
@@ -254,14 +251,12 @@ void ble_transfer_app_handle_conn_state_evt(uint8_t conn_id, T_GAP_CONN_STATE ne
     char le_addr[30] = {0};
     ble_transfer_module_le_addr_t addr = {0};
     uint16_t err, conn_handle = 0;
-	int ret = 1;
-    char *role;
-	
+
     if (conn_id >= BLE_TRANSFER_APP_MAX_LINKS)
     {
         return;
     }
-    
+
     APP_PRINT_INFO4("ble_transfer_app_handle_conn_state_evt: conn_handle %d, conn_state(%d -> %d), disc_cause 0x%x",
                     conn_handle, ble_transfer_app_link_table[conn_id].conn_state, new_state, disc_cause);
 
@@ -282,45 +277,41 @@ void ble_transfer_app_handle_conn_state_evt(uint8_t conn_id, T_GAP_CONN_STATE ne
                 disc_read_type[conn_id].disc_type = 0;
                 disc_read_type[conn_id].read_type = 0;
                 printf("Disconnect conn_handle %d, cause 0x%x\r\n", conn_handle, disc_cause);
-    ///judge the type of disconnect is central or peripheral,if peripheral,start ADV	
-                if (ble_transfer_app_link_table[conn_id].role == GAP_LINK_ROLE_SLAVE){
-                    printf("As peripheral,recieve disconncect,please start ADV\r\n");
-                    ret = le_adv_start();
-                    if(ret == GAP_CAUSE_SUCCESS)
-                        printf("START ADV!!\r\n");
-                }
-                
+
                 if (ble_transfer_app_link_table[conn_id].role == GAP_LINK_ROLE_MASTER) {
                     ble_transfer_central_app_max_links --;
-                    role = "master";
                 } else if (ble_transfer_app_link_table[conn_id].role == GAP_LINK_ROLE_SLAVE)
                 {
                     ble_transfer_peripheral_app_max_links --;
-                    role = "slave";
                 }
                 is_pairing_initiator[conn_id] = 0;
                 memcpy(addr.addr_val, ble_transfer_app_link_table[conn_id].bd_addr, sizeof(ble_transfer_app_link_table[conn_id].bd_addr));
                 addr.type = ble_transfer_app_link_table[conn_id].bd_type;
-                ble_transfer_module_addr_to_str(&addr, le_addr, sizeof(le_addr));
-                at_printf("+BLEGAP:disconn,0x%x,%d,%s,%s\r\n",
-					disc_cause, conn_handle, role, le_addr);
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+                if (disc_cause != (HCI_ERR | HCI_ERR_LOCAL_HOST_TERMINATE)) {
+                    ble_transfer_module_addr_to_str(&addr, le_addr, sizeof(le_addr));
+                    BT_AT_PRINT("[$]+BLEGAP:disconn,%d,%s\r\n", conn_handle, le_addr);
+                }
 
+                bt_at_sync_disconnect_hdl(conn_handle);
+#endif
                 memset(&ble_transfer_app_link_table[conn_id], 0, sizeof(T_APP_LINK));
-
-                
-                
             } else if (GAP_CONN_STATE_CONNECTING == prev_state) {
                 if(GAP_ERR_TOUT  == disc_cause) {
                     err = 0x20;
                 } else {
                     err = disc_cause;
                 }
-                ble_transfer_module_addr_to_str(&addr, le_addr, sizeof(le_addr));
-                at_printf("+BLEGAP:conn,%d,0,%s\r\n", (err == 0) ? 0 : -1, le_addr);
-            }			  
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+                if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GAP_CONN)) {
+                    bt_at_sync_set_result_by_evt_cause(err);
+                    bt_at_sync_sem_give();
+                }
+#endif
+            }
         }
         break;
-    
+
     case GAP_CONN_STATE_CONNECTED:
         {
             conn_handle = le_get_conn_handle(conn_id);
@@ -337,7 +328,6 @@ void ble_transfer_app_handle_conn_state_evt(uint8_t conn_id, T_GAP_CONN_STATE ne
 	        printf("Connected success conn_handle %d\r\n", conn_handle);
 		////print bt address type
 			uint8_t local_bd_type;
-            //uint8_t features[8];
             uint8_t remote_bd_type;
             le_get_conn_param(GAP_PARAM_CONN_LOCAL_BD_TYPE, &local_bd_type, conn_id);
             le_get_conn_param(GAP_PARAM_CONN_BD_ADDR_TYPE, &remote_bd_type, conn_id);
@@ -359,8 +349,23 @@ void ble_transfer_app_handle_conn_state_evt(uint8_t conn_id, T_GAP_CONN_STATE ne
             is_pairing_initiator[conn_id] = 0;
             memcpy(addr.addr_val, ble_transfer_app_link_table[conn_id].bd_addr, sizeof(ble_transfer_app_link_table[conn_id].bd_addr));
 	        addr.type = ble_transfer_app_link_table[conn_id].bd_type;
-            ble_transfer_module_addr_to_str(&addr, le_addr, sizeof(le_addr));
-            at_printf("+BLEGAP:conn,%d,%d,%s\r\n", (disc_cause == 0) ? 0 : -1, conn_handle, le_addr);
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+            if (!disc_cause) {
+                ble_transfer_module_addr_to_str(&addr, le_addr, sizeof(le_addr));
+                if (conn_info.role == GAP_LINK_ROLE_MASTER) {
+                    BT_AT_PRINT("+BLEGAP:conn,%d,%s\r\n", conn_handle, le_addr);
+                } else if (conn_info.role == GAP_LINK_ROLE_SLAVE) {
+                    BT_AT_PRINT("[$]+BLEGAP:conn,%d,%s\r\n", conn_handle, le_addr);
+                }
+            }
+
+            if (conn_info.role == GAP_LINK_ROLE_MASTER) {
+                if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GAP_CONN)) {
+                    bt_at_sync_set_result_by_evt_cause(disc_cause);
+                    bt_at_sync_sem_give();
+                }
+            }
+#endif
         }
         break;
 
@@ -404,7 +409,9 @@ void ble_transfer_app_handle_authen_state_evt(uint8_t conn_id, uint8_t new_state
                 APP_PRINT_INFO0("ble_transfer_app_handle_authen_state_evt: GAP_AUTHEN_STATE_COMPLETE pair failed");
                 is_pairing_initiator[conn_id] = 0;
             }
-            at_printf("+BLEGAP:sec,%d,%d\r\n", conn_handle, (cause == 0) ? 0 : -1);
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+            BT_AT_PRINT("[$]+BLEGAP:authcmpl,%d,%d\r\n", conn_handle, (cause == 0) ? 0 : 1);
+#endif
         }
         break;
 
@@ -455,8 +462,6 @@ void ble_transfer_app_handle_conn_param_update_evt(uint8_t conn_id, uint8_t stat
                             conn_handle, conn_interval, conn_slave_latency, conn_supervision_timeout);
 			printf("ble_transfer_app_handle_conn_param_update_evt update success:conn_handle %d, conn_interval 0x%x, conn_slave_latency 0x%x, conn_supervision_timeout 0x%x \r\n",
                             conn_handle, conn_interval, conn_slave_latency, conn_supervision_timeout);
-            at_printf("+BLEGAP:conn_update,%d,0,0x%x,0x%x,0x%x\r\n",
-						conn_handle, conn_interval, conn_slave_latency, conn_supervision_timeout);
         }
         break;
 
@@ -466,7 +471,6 @@ void ble_transfer_app_handle_conn_param_update_evt(uint8_t conn_id, uint8_t stat
                              conn_handle, cause);
 			printf("ble_transfer_app_handle_conn_param_update_evt update failed: conn_handle %d, cause 0x%x\r\n",
                              conn_handle, cause);
-            at_printf("+BLEGAP:conn_update,%d,-1\r\n", conn_handle);
         }
         break;
 
@@ -481,6 +485,14 @@ void ble_transfer_app_handle_conn_param_update_evt(uint8_t conn_id, uint8_t stat
     default:
         break;
     }
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+    if ((status == GAP_CONN_PARAM_UPDATE_STATUS_SUCCESS) || (status == GAP_CONN_PARAM_UPDATE_STATUS_FAIL)) {
+        if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GAP_CONN_UPDATE)) {
+            bt_at_sync_set_result_by_evt_cause(status);
+            bt_at_sync_sem_give();
+        }
+    }
+#endif
 }
 
 /**
@@ -542,10 +554,10 @@ void ble_transfer_app_handle_gap_msg(T_IO_MSG *p_gap_msg)
         {
             conn_id = gap_msg.msg_data.gap_bond_just_work_conf.conn_id;
             conn_handle = le_get_conn_handle(conn_id);
-            le_bond_just_work_confirm(conn_id, GAP_CFM_CAUSE_ACCEPT);
+            //le_bond_just_work_confirm(conn_id, GAP_CFM_CAUSE_ACCEPT);
             APP_PRINT_INFO0("GAP_MSG_LE_BOND_JUST_WORK");
-            if(is_pairing_initiator[conn_id] == 0)
-                at_printf("+BLEGAP:pair_cfm,%d\r\n", conn_handle);
+            //if(is_pairing_initiator[conn_id] == 0)
+            BT_AT_PRINT("[$]+BLEGAP:pair_cfm,%d\r\n", conn_handle);
         }
         break;
 
@@ -561,7 +573,7 @@ void ble_transfer_app_handle_gap_msg(T_IO_MSG *p_gap_msg)
             printf("GAP_MSG_LE_BOND_PASSKEY_DISPLAY: conn_id %d, passkey %06d\r\n",
                             conn_id,
                             display_value);
-            at_printf("+BLEGAP:passkey_display,%d,%d\r\n", (int)conn_handle, (int)display_value);
+            BT_AT_PRINT("[$]+BLEGAP:passkey_display,%d,%d\r\n", (int)conn_handle, (int)display_value);
         }
         break;
 
@@ -577,7 +589,7 @@ void ble_transfer_app_handle_gap_msg(T_IO_MSG *p_gap_msg)
                             conn_id,
                             display_value);
             //le_bond_user_confirm(conn_id, GAP_CFM_CAUSE_ACCEPT);
-            at_printf("+BLEGAP:passkey_cfm,%d,%d\r\n", (int)conn_handle, (int)display_value);
+            BT_AT_PRINT("[$]+BLEGAP:passkey_cfm,%d,%d\r\n", (int)conn_handle, (int)display_value);
         }
         break;
 
@@ -589,7 +601,7 @@ void ble_transfer_app_handle_gap_msg(T_IO_MSG *p_gap_msg)
             APP_PRINT_INFO1("GAP_MSG_LE_BOND_PASSKEY_INPUT: conn_id %d", conn_id);
             printf("GAP_MSG_LE_BOND_PASSKEY_INPUT: conn_id %d\r\n", conn_id);
             //le_bond_passkey_input_confirm(conn_id, passkey, GAP_CFM_CAUSE_ACCEPT);
-            at_printf("+BLEGAP:passkey_input,%d\r\n", conn_handle);
+            BT_AT_PRINT("[$]+BLEGAP:passkey_input,%d\r\n", conn_handle);
         }
         break;
 #if F_BT_LE_SMP_OOB_SUPPORT
@@ -601,7 +613,7 @@ void ble_transfer_app_handle_gap_msg(T_IO_MSG *p_gap_msg)
             APP_PRINT_INFO1("GAP_MSG_LE_BOND_OOB_INPUT: conn_id %d", conn_id);
             le_bond_set_param(GAP_PARAM_BOND_OOB_DATA, GAP_OOB_LEN, oob_data);
             le_bond_oob_input_confirm(conn_id, GAP_CFM_CAUSE_ACCEPT);
-            at_printf("+BLEGAP:oobkey_input,%d\r\n", conn_handle);
+            BT_AT_PRINT("[$]+BLEGAP:oobkey_input,%d\r\n", conn_handle);
         }
         break;
 #endif
@@ -803,12 +815,11 @@ T_APP_RESULT ble_transfer_app_gap_callback(uint8_t cb_type, void *p_cb_data)
     T_APP_RESULT result = APP_RESULT_SUCCESS;
     T_LE_CB_DATA *p_data = (T_LE_CB_DATA *)p_cb_data;
     char le_addr[30] = {0};
-    char le_ident_addr[30] = {0};
     ble_transfer_module_le_addr_t addr = {0};
     ble_transfer_module_le_addr_t ident_addr = {0};
 	char adv_type[20];
 	char remote_addr_type[10];
-     uint16_t conn_handle;
+    uint16_t conn_handle;
 
     switch (cb_type)
     {
@@ -832,11 +843,11 @@ T_APP_RESULT ble_transfer_app_gap_callback(uint8_t cb_type, void *p_cb_data)
 		printf("%s\t\t%s\t"BD_ADDR_FMT"\t%d\r\n",adv_type,remote_addr_type,BD_ADDR_ARG(p_data->p_le_scan_info->bd_addr),
 												p_data->p_le_scan_info->rssi);
 
-        ble_transfer_app_parse_scan_info(p_data->p_le_scan_info);
+        //ble_transfer_app_parse_scan_info(p_data->p_le_scan_info);
         memcpy(addr.addr_val, p_data->p_le_scan_info->bd_addr, sizeof(p_data->p_le_scan_info->bd_addr));
         addr.type = p_data->p_le_scan_info->remote_addr_type;
         ble_transfer_module_addr_to_str(&addr, le_addr, sizeof(le_addr));
-        at_printf("+BLEGAP:scan,info,%s,%d,%d,%d\r\n",
+        BT_AT_PRINT("+BLEGAP:scan,%s,%d,%d,%d\r\n",
 					le_addr, p_data->p_le_scan_info->adv_type, p_data->p_le_scan_info->rssi, p_data->p_le_scan_info->data_len);
         break;
 
@@ -869,7 +880,7 @@ T_APP_RESULT ble_transfer_app_gap_callback(uint8_t cb_type, void *p_cb_data)
 							p_data->p_le_phy_update_info->rx_phy,
 							p_data->p_le_phy_update_info->tx_phy);
 			break;
-	
+
 		case GAP_MSG_LE_REMOTE_FEATS_INFO:
 			{
 				uint8_t  remote_feats[8];
@@ -896,15 +907,38 @@ T_APP_RESULT ble_transfer_app_gap_callback(uint8_t cb_type, void *p_cb_data)
 #endif
 
 		case GAP_MSG_LE_MODIFY_WHITE_LIST:
+		{
 			APP_PRINT_INFO2("GAP_MSG_LE_MODIFY_WHITE_LIST: operation  0x%x, cause 0x%x",
 					p_data->p_le_modify_white_list_rsp->operation,
 					p_data->p_le_modify_white_list_rsp->cause);
 			printf("GAP_MSG_LE_MODIFY_WHITE_LIST: operation  0x%x, cause 0x%x\r\n",
 					p_data->p_le_modify_white_list_rsp->operation,
 					p_data->p_le_modify_white_list_rsp->cause);
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+			uint8_t cmd_type = BT_AT_SYNC_CMD_TYPE_NONE;
+			switch (p_data->p_le_modify_white_list_rsp->operation) {
+			case GAP_WHITE_LIST_OP_ADD:
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_WL_ADD;
+				break;
+			case GAP_WHITE_LIST_OP_REMOVE:
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_WL_REMOVE;
+				break;
+			case GAP_WHITE_LIST_OP_CLEAR:
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_WL_CLEAR;
+				break;
+			default:
+				break;
+			}
+			if (bt_at_sync_event_match_check(cmd_type)) {
+				bt_at_sync_set_result_by_evt_cause(p_data->p_le_modify_white_list_rsp->cause);
+				bt_at_sync_sem_give();
+			}
+#endif
+		}
 			break;
 
         case GAP_MSG_LE_BOND_MODIFY_INFO:
+        {
             if(p_data->p_le_bond_modify_info->type == LE_BOND_DELETE || p_data->p_le_bond_modify_info->type == LE_BOND_ADD) {
                 memcpy(addr.addr_val, p_data->p_le_bond_modify_info->p_entry->remote_bd.addr, sizeof(p_data->p_le_bond_modify_info->p_entry->remote_bd.addr));
                 addr.type = p_data->p_le_bond_modify_info->p_entry->remote_bd.remote_bd_type;
@@ -912,12 +946,25 @@ T_APP_RESULT ble_transfer_app_gap_callback(uint8_t cb_type, void *p_cb_data)
                 memcpy(ident_addr.addr_val, p_data->p_le_bond_modify_info->p_entry->resolved_remote_bd.addr, sizeof(p_data->p_le_bond_modify_info->p_entry->resolved_remote_bd.addr));
                 ident_addr.type = p_data->p_le_bond_modify_info->p_entry->resolved_remote_bd.remote_bd_type;
             }
-            
-            ble_transfer_module_addr_to_str(&addr, le_addr, sizeof(le_addr));
-            ble_transfer_module_addr_to_str(&ident_addr, le_ident_addr, sizeof(le_ident_addr));
-            at_printf("+BLEGAP:bond_modify,%d,%s,%s\r\n", p_data->p_le_bond_modify_info->type, le_addr, le_ident_addr);
+
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+            uint8_t cmd_type = BT_AT_SYNC_CMD_TYPE_NONE;
+            if (p_data->p_le_bond_modify_info->type == LE_BOND_DELETE) {
+                cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_BOND_DEL;
+            } else if (p_data->p_le_bond_modify_info->type == LE_BOND_CLEAR) {
+                cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_BOND_CLEAR;
+            }
+
+            if (cmd_type) {
+                if (bt_at_sync_event_match_check(cmd_type)) {
+                    bt_at_sync_set_result(BT_AT_EVT_RESULT_SUCCESS);
+                    bt_at_sync_sem_give();
+                }
+            }
+#endif
+        }
             break;
-        
+
         case GAP_MSG_LE_DATA_LEN_CHANGE_INFO:
             conn_handle = le_get_conn_handle(p_data->p_le_data_len_change_info->conn_id);
 			APP_PRINT_INFO5("GAP_MSG_LE_DATA_LEN_CHANGE_INFO:conn_id %d, max_tx_octets 0x%x, max_tx_time %x, max_rx_octets %x, max_rx_time %x",
@@ -932,12 +979,6 @@ T_APP_RESULT ble_transfer_app_gap_callback(uint8_t cb_type, void *p_cb_data)
 							p_data->p_le_data_len_change_info->max_tx_time,
 							p_data->p_le_data_len_change_info->max_rx_octets,
                             p_data->p_le_data_len_change_info->max_rx_time);
-            at_printf("+BLEGAP:conn_datalen,%d,0x%x,0x%x,0x%x,0x%x\r\n",
-					conn_handle,
-					p_data->p_le_data_len_change_info->max_tx_octets,
-					p_data->p_le_data_len_change_info->max_tx_time,
-					p_data->p_le_data_len_change_info->max_rx_octets,
-					p_data->p_le_data_len_change_info->max_rx_time);
 			break;
     default:
         APP_PRINT_ERROR1("ble_transfer_app_gap_callback: unhandled cb_type 0x%x", cb_type);
@@ -964,6 +1005,8 @@ T_APP_RESULT ble_transfer_app_profile_callback(T_SERVER_ID service_id, void *p_d
 {
 	T_APP_RESULT app_result = APP_RESULT_SUCCESS;
     uint16_t conn_handle;
+
+	printf("%s service_id=%d\r\n", __func__, service_id);
 	if (service_id == SERVICE_PROFILE_GENERAL_ID)
 	{
 		T_SERVER_APP_CB_DATA *p_param = (T_SERVER_APP_CB_DATA *)p_data;
@@ -1003,14 +1046,20 @@ T_APP_RESULT ble_transfer_app_profile_callback(T_SERVER_ID service_id, void *p_d
 		default:
 			break;
 		}
-        if(p_param->event_data.send_data_result.attrib_idx == BLE_TRANSFER_MODULE_SERVICE_CHAR_V3_NOTIFY_INDEX) {
-            at_printf("+BLEGATTS:notify,%d,%d,%d,%d\r\n",
-				(GAP_SUCCESS == p_param->event_data.send_data_result.cause) ? 0 : -1, TRANSFER_MODULE_APP_ID,
-				conn_handle, p_param->event_data.send_data_result.attrib_idx);
-        } else if (p_param->event_data.send_data_result.attrib_idx == BLE_TRANSFER_MODULE_SERVICE_CHAR_V4_INDICATE_INDEX) {
-            at_printf("+BLEGATTS:indicate,%d,%d,%d,%d\r\n",
-				(GAP_SUCCESS == p_param->event_data.send_data_result.cause) ? 0 : -1, TRANSFER_MODULE_APP_ID,
-				conn_handle, p_param->event_data.send_data_result.attrib_idx);
+		if(p_param->event_data.send_data_result.attrib_idx == BLE_TRANSFER_MODULE_SERVICE_CHAR_V3_NOTIFY_INDEX) {
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+			if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GATTS_NOTIFY)) {
+				bt_at_sync_set_result_by_evt_cause(p_param->event_data.send_data_result.cause);
+				bt_at_sync_sem_give();
+			}
+#endif
+		} else if (p_param->event_data.send_data_result.attrib_idx == BLE_TRANSFER_MODULE_SERVICE_CHAR_V4_INDICATE_INDEX) {
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+			if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GATTS_INDICATE)) {
+				bt_at_sync_set_result_by_evt_cause(p_param->event_data.send_data_result.cause);
+				bt_at_sync_sem_give();
+			}
+#endif
         }
 	}
 	else  if (service_id == transfer_srv_id)
@@ -1193,11 +1242,11 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                				 i, p_result_table->result_data.srv_uuid16_disc_data.att_handle,
                				 p_result_table->result_data.srv_uuid16_disc_data.end_group_handle,
                				 p_result_table->result_data.srv_uuid16_disc_data.uuid16);
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%04x,%04x\r\n",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
-						p_result_table->result_data.srv_uuid16_disc_data.att_handle, 
-                        p_result_table->result_data.srv_uuid16_disc_data.end_group_handle, 
-                        p_result_table->result_data.srv_uuid16_disc_data.uuid16);
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%04x,%04x\r\n",
+                            disc_read_type[conn_id].disc_type, conn_handle,
+                            p_result_table->result_data.srv_uuid16_disc_data.att_handle,
+                            p_result_table->result_data.srv_uuid16_disc_data.end_group_handle,
+                            p_result_table->result_data.srv_uuid16_disc_data.uuid16);
                 break;
             case DISC_RESULT_ALL_SRV_UUID128:
                 APP_PRINT_INFO4("ALL SRV UUID128[%d]: service range: 0x%x-0x%x, service=<%b>",
@@ -1208,10 +1257,10 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                                 i, p_result_table->result_data.srv_uuid128_disc_data.att_handle,
                                 p_result_table->result_data.srv_uuid128_disc_data.end_group_handle,
                                 UUID_128(p_result_table->result_data.srv_uuid128_disc_data.uuid128));
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%04x,"TRANSFERUUID_128_FORMAT"",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
-						p_result_table->result_data.srv_uuid128_disc_data.att_handle, 
-                        p_result_table->result_data.srv_uuid128_disc_data.end_group_handle, 
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%04x,"TRANSFERUUID_128_FORMAT"",
+						disc_read_type[conn_id].disc_type, conn_handle,
+						p_result_table->result_data.srv_uuid128_disc_data.att_handle,
+                        p_result_table->result_data.srv_uuid128_disc_data.end_group_handle,
                         TRANSFER_UUID_128(p_result_table->result_data.srv_uuid128_disc_data.uuid128));
                 break;
 
@@ -1242,9 +1291,9 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                 printf("SRV DATA[%d]: service range: 0x%x-0x%x\r\n",
                                 i, p_result_table->result_data.srv_disc_data.att_handle,
                                 p_result_table->result_data.srv_disc_data.end_group_handle);
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%04x\r\n",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
-						p_result_table->result_data.srv_disc_data.att_handle, 
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%04x\r\n",
+						disc_read_type[conn_id].disc_type, conn_handle,
+						p_result_table->result_data.srv_disc_data.att_handle,
                         p_result_table->result_data.srv_disc_data.end_group_handle);
 
                 break;
@@ -1275,9 +1324,9 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                 printf("SRV DATA[%d]: service range: 0x%x-0x%x\r\n",
                                 i, p_result_table->result_data.srv_disc_data.att_handle,
                                 p_result_table->result_data.srv_disc_data.end_group_handle);
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%04x\r\n",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
-						p_result_table->result_data.srv_disc_data.att_handle, 
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%04x\r\n",
+						disc_read_type[conn_id].disc_type, conn_handle,
+						p_result_table->result_data.srv_disc_data.att_handle,
                         p_result_table->result_data.srv_disc_data.end_group_handle);
 
                 break;
@@ -1308,11 +1357,11 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                              p_result_table->result_data.relation_uuid16_disc_data.att_handle,
                				 p_result_table->result_data.relation_uuid16_disc_data.end_group_handle,
                				 p_result_table->result_data.relation_uuid16_disc_data.uuid16);
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%04x,%04x\r\n",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
-						p_result_table->result_data.relation_uuid16_disc_data.decl_handle, 
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%04x,0x%04x,%04x\r\n",
+						disc_read_type[conn_id].disc_type, conn_handle,
+						p_result_table->result_data.relation_uuid16_disc_data.decl_handle,
                         p_result_table->result_data.relation_uuid16_disc_data.att_handle,
-                        p_result_table->result_data.relation_uuid16_disc_data.end_group_handle, 
+                        p_result_table->result_data.relation_uuid16_disc_data.end_group_handle,
                         p_result_table->result_data.relation_uuid16_disc_data.uuid16);
                 break;
             case DISC_RESULT_RELATION_UUID128:
@@ -1325,11 +1374,11 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                                 i, p_result_table->result_data.relation_uuid128_disc_data.att_handle,
                                 p_result_table->result_data.relation_uuid128_disc_data.end_group_handle,
                                 UUID_128(p_result_table->result_data.relation_uuid128_disc_data.uuid128));
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%04x,0x%04x,"TRANSFERUUID_128_FORMAT"",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%04x,0x%04x,"TRANSFERUUID_128_FORMAT"",
+						disc_read_type[conn_id].disc_type, conn_handle,
                         p_result_table->result_data.relation_uuid128_disc_data.decl_handle,
-						p_result_table->result_data.relation_uuid128_disc_data.att_handle, 
-                        p_result_table->result_data.relation_uuid128_disc_data.end_group_handle, 
+						p_result_table->result_data.relation_uuid128_disc_data.att_handle,
+                        p_result_table->result_data.relation_uuid128_disc_data.end_group_handle,
                         TRANSFER_UUID_128(p_result_table->result_data.relation_uuid128_disc_data.uuid128));
                 break;
 
@@ -1377,11 +1426,11 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                                 properties & GATT_CHAR_PROP_WRITE,
                                 properties & GATT_CHAR_PROP_NOTIFY);
 
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%02x,0x%04x,%04x\r\n",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
-                        p_result_table->result_data.char_uuid16_disc_data.decl_handle, 
-						p_result_table->result_data.char_uuid16_disc_data.properties, 
-                        p_result_table->result_data.char_uuid16_disc_data.value_handle, 
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%02x,0x%04x,%04x\r\n",
+						disc_read_type[conn_id].disc_type, conn_handle,
+                        p_result_table->result_data.char_uuid16_disc_data.decl_handle,
+						p_result_table->result_data.char_uuid16_disc_data.properties,
+                        p_result_table->result_data.char_uuid16_disc_data.value_handle,
                         p_result_table->result_data.char_uuid16_disc_data.uuid16);
 
                 break;
@@ -1412,11 +1461,11 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                                 properties & GATT_CHAR_PROP_WRITE,
                                 properties & GATT_CHAR_PROP_NOTIFY
                                );
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%02x,0x%04x,"TRANSFERUUID_128_FORMAT"",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%02x,0x%04x,"TRANSFERUUID_128_FORMAT"",
+						disc_read_type[conn_id].disc_type, conn_handle,
                         p_result_table->result_data.char_uuid128_disc_data.decl_handle,
-						p_result_table->result_data.char_uuid128_disc_data.properties, 
-                        p_result_table->result_data.char_uuid128_disc_data.value_handle, 
+						p_result_table->result_data.char_uuid128_disc_data.properties,
+                        p_result_table->result_data.char_uuid128_disc_data.value_handle,
                         TRANSFER_UUID_128(p_result_table->result_data.char_uuid128_disc_data.uuid128));
                 break;
             default:
@@ -1464,11 +1513,11 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                                 properties & GATT_CHAR_PROP_WRITE,
                                 properties & GATT_CHAR_PROP_NOTIFY
                                );
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%02x,0x%04x,%04x\r\n",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
-                        p_result_table->result_data.char_uuid16_disc_data.decl_handle, 
-						p_result_table->result_data.char_uuid16_disc_data.properties, 
-                        p_result_table->result_data.char_uuid16_disc_data.value_handle, 
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%02x,0x%04x,%04x\r\n",
+						disc_read_type[conn_id].disc_type, conn_handle,
+                        p_result_table->result_data.char_uuid16_disc_data.decl_handle,
+						p_result_table->result_data.char_uuid16_disc_data.properties,
+                        p_result_table->result_data.char_uuid16_disc_data.value_handle,
                         p_result_table->result_data.char_uuid16_disc_data.uuid16);
 
                 break;
@@ -1518,11 +1567,11 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                                 properties & GATT_CHAR_PROP_WRITE,
                                 properties & GATT_CHAR_PROP_NOTIFY
                                );
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,0x%02x,0x%04x,"TRANSFERUUID_128_FORMAT"",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,0x%02x,0x%04x,"TRANSFERUUID_128_FORMAT"",
+						disc_read_type[conn_id].disc_type, conn_handle,
                         p_result_table->result_data.char_uuid128_disc_data.decl_handle,
-						p_result_table->result_data.char_uuid128_disc_data.properties, 
-                        p_result_table->result_data.char_uuid128_disc_data.value_handle, 
+						p_result_table->result_data.char_uuid128_disc_data.properties,
+                        p_result_table->result_data.char_uuid128_disc_data.value_handle,
                         TRANSFER_UUID_128(p_result_table->result_data.char_uuid128_disc_data.uuid128));
 
                 break;
@@ -1552,9 +1601,9 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                 printf("DESC UUID16[%d]: Descriptors handle=0x%x, uuid16=<0x%x>\r\n",
                                 i, p_result_table->result_data.char_desc_uuid16_disc_data.handle,
                                 p_result_table->result_data.char_desc_uuid16_disc_data.uuid16);
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,%04x\r\n",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
-                        p_result_table->result_data.char_desc_uuid16_disc_data.handle, 
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,%04x\r\n",
+						disc_read_type[conn_id].disc_type, conn_handle,
+                        p_result_table->result_data.char_desc_uuid16_disc_data.handle,
                         p_result_table->result_data.char_uuid16_disc_data.uuid16);
 
                 break;
@@ -1565,8 +1614,8 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
                 printf("DESC UUID128[%d]: Descriptors handle=0x%x, uuid128="UUID_128_FORMAT"\r\n",
                                 i, p_result_table->result_data.char_desc_uuid128_disc_data.handle,
                                 UUID_128(p_result_table->result_data.char_desc_uuid128_disc_data.uuid128));
-                at_printf("+BLEGATTC:disc,%d,%d,%d,0x%04x,"TRANSFERUUID_128_FORMAT"",
-						BLE_TRANSFER_MODULE_STATUS_CONTINUE, disc_read_type[conn_id].disc_type, conn_handle,
+                BT_AT_PRINT("+BLEGATTC:disc,%d,%d,0x%04x,"TRANSFERUUID_128_FORMAT"",
+						disc_read_type[conn_id].disc_type, conn_handle,
                         p_result_table->result_data.char_desc_uuid128_disc_data.handle,
                         TRANSFER_UUID_128(p_result_table->result_data.char_desc_uuid128_disc_data.uuid128));
                 break;
@@ -1587,13 +1636,13 @@ void ble_transfer_gcs_handle_discovery_result(uint8_t conn_id, T_GCS_DISCOVERY_R
         disc_status = BLE_TRANSFER_MODULE_STATUS_FAIL;
         break;
     }
-    if(disc_status == BLE_TRANSFER_MODULE_STATUS_CONTINUE)
-        at_printf("+BLEGATTC:disc,%d,%d,%d\r\n",
-            BLE_TRANSFER_MODULE_STATUS_DONE, conn_handle, disc_read_type[conn_id].disc_type);
-    else {
-        at_printf("+BLEGATTC:disc,%d,%d,%d,0x%x\r\n",
-            BLE_TRANSFER_MODULE_STATUS_FAIL, conn_handle, disc_read_type[conn_id].disc_type, discov_result.is_success);
-    }
+
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+        if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GATTC_DISC)) {
+            bt_at_sync_set_result(discov_result.is_success ? BT_AT_OK : BT_AT_ERR_LOWER_STACK);
+            bt_at_sync_sem_give();
+        }
+#endif
 }
 /**
  * @brief  Callback will be called when data sent from gcs client.
@@ -1606,7 +1655,7 @@ T_APP_RESULT ble_transfer_gcs_client_callback(T_CLIENT_ID client_id, uint8_t con
 {
     T_APP_RESULT  result = APP_RESULT_SUCCESS;
     uint16_t conn_handle = le_get_conn_handle(conn_id);
-    uint8_t write_type = 0;
+
     APP_PRINT_INFO2("ble_transfer_gcs_client_callback: client_id %d, conn_handle %d",
                     client_id, conn_handle);
     if (client_id == ble_transfer_gcs_client_id)
@@ -1637,17 +1686,21 @@ T_APP_RESULT ble_transfer_gcs_client_callback(T_CLIENT_ID client_id, uint8_t con
                     printf("0x%02x ", *(p_gcs_cb_data->cb_content.read_result.p_value + i));
                 printf("\r\n");
 
-                at_printf("+BLEGATTC:read,%d,%d,%d,0x%04x",
-                    BLE_TRANSFER_MODULE_STATUS_CONTINUE, conn_handle,
-                    disc_read_type[conn_id].read_type, p_gcs_cb_data->cb_content.read_result.handle);
+                BT_AT_PRINT("+BLEGATTC:read,%d,%d,0x%04x,%d",
+                    conn_handle, disc_read_type[conn_id].read_type,
+                    p_gcs_cb_data->cb_content.read_result.handle, p_gcs_cb_data->cb_content.read_result.value_size);
 			    BT_AT_DUMP("", p_gcs_cb_data->cb_content.read_result.p_value, p_gcs_cb_data->cb_content.read_result.value_size);
-                at_printf("+BLEGATTC:read,%d,%d,%d\r\n",
-					BLE_TRANSFER_MODULE_STATUS_DONE, conn_handle, disc_read_type[conn_id].read_type);
             } else {
-                at_printf("+BLEGATTC:read,%d,%d,%d,0x%x\r\n",
+                /*BT_AT_PRINT("+BLEGATTC:read,%d,%d,%d,0x%x\r\n",
 					BLE_TRANSFER_MODULE_STATUS_FAIL, conn_handle,
-					disc_read_type[conn_id].read_type, p_gcs_cb_data->cb_content.read_result.cause);
+					disc_read_type[conn_id].read_type, p_gcs_cb_data->cb_content.read_result.cause);*/
             }
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+            if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GATTC_READ)) {
+                bt_at_sync_set_result_by_evt_cause(p_gcs_cb_data->cb_content.read_result.cause);
+                bt_at_sync_sem_give();
+            }
+#endif
             break;
         case GCS_CLIENT_CB_TYPE_WRITE_RESULT:
             APP_PRINT_INFO3("WRITE RESULT: cause 0x%x, handle 0x%x, type %d",
@@ -1658,23 +1711,13 @@ T_APP_RESULT ble_transfer_gcs_client_callback(T_CLIENT_ID client_id, uint8_t con
                             p_gcs_cb_data->cb_content.write_result.cause,
                             p_gcs_cb_data->cb_content.write_result.handle,
                             p_gcs_cb_data->cb_content.write_result.type);
-            
-            if(p_gcs_cb_data->cb_content.write_result.type == GATT_WRITE_TYPE_REQ) {
-                write_type = BLE_TRANSFER_MODULE_GATT_CHAR_WRITE_REQ;
-            }else if(p_gcs_cb_data->cb_content.write_result.type == GATT_WRITE_TYPE_CMD) {
-                write_type = BLE_TRANSFER_MODULE_GATT_CHAR_WRITE_NO_RSP;
-            }else if(p_gcs_cb_data->cb_content.write_result.type == GATT_WRITE_TYPE_SIGNED_CMD) {
-                write_type = BLE_TRANSFER_MODULE_GATT_CHAR_WRITE_NO_RSP_SIGNED;
+
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+            if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GATTC_WRITE)) {
+                bt_at_sync_set_result_by_evt_cause(p_gcs_cb_data->cb_content.write_result.cause);
+                bt_at_sync_sem_give();
             }
-            if (p_gcs_cb_data->cb_content.write_result.cause == GAP_SUCCESS) {
-                at_printf("+BLEGATTC:write,%d,%d,%d,0x%x\r\n",
-					BLE_TRANSFER_MODULE_STATUS_DONE, conn_handle,
-					write_type, p_gcs_cb_data->cb_content.write_result.handle);
-            } else {
-                at_printf("+BLEGATTC:write,%d,%d,%d,0x%x\r\n",
-					BLE_TRANSFER_MODULE_STATUS_FAIL, conn_handle,
-					write_type, p_gcs_cb_data->cb_content.write_result.handle);
-            }
+#endif
             break;
         case GCS_CLIENT_CB_TYPE_NOTIF_IND:
             if (p_gcs_cb_data->cb_content.notif_ind.notify == false)
@@ -1693,8 +1736,9 @@ T_APP_RESULT ble_transfer_gcs_client_callback(T_CLIENT_ID client_id, uint8_t con
                     printf("0x%02x ", *(p_gcs_cb_data->cb_content.notif_ind.p_value+ i));
                 }
                 printf("\r\n");
-                at_printf("+BLEGATTC:indicate,%d,0x%x",
-				            conn_handle, p_gcs_cb_data->cb_content.notif_ind.handle);
+                BT_AT_PRINT("[$]+BLEGATTC:indicate,%d,0x%x,%d",
+				            conn_handle, p_gcs_cb_data->cb_content.notif_ind.handle,
+                            p_gcs_cb_data->cb_content.notif_ind.value_size);
 	            BT_AT_DUMP("", p_gcs_cb_data->cb_content.notif_ind.p_value, p_gcs_cb_data->cb_content.notif_ind.value_size);
             }
             else
@@ -1713,8 +1757,9 @@ T_APP_RESULT ble_transfer_gcs_client_callback(T_CLIENT_ID client_id, uint8_t con
                     printf("0x%02x ", *(p_gcs_cb_data->cb_content.notif_ind.p_value+ i));
                 }
                 printf("\r\n");
-                at_printf("+BLEGATTC:notify,%d,0x%x",
-				            conn_handle, p_gcs_cb_data->cb_content.notif_ind.handle);
+                BT_AT_PRINT("[$]+BLEGATTC:notify,%d,0x%x,%d",
+				            conn_handle, p_gcs_cb_data->cb_content.notif_ind.handle,
+                            p_gcs_cb_data->cb_content.notif_ind.value_size);
 	            BT_AT_DUMP("", p_gcs_cb_data->cb_content.notif_ind.p_value, p_gcs_cb_data->cb_content.notif_ind.value_size);
             }
             break;

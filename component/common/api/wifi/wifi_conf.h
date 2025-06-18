@@ -1306,6 +1306,15 @@ int wifi_set_softap_gkey_interval(uint32_t interval);
 */
 int wifi_set_slient_softap(rtw_bool_t enable);
 
+/**
+* @brief  Between each scan channel, switch back to softap channel and stay on it for custom_beacon_period.
+*		  The "custom_beacon_period" is set through "wifi_set_bcn_period", default 100ms.
+*         Support only if client is associated with softap in CONCURRENT mode
+ * @param[in]  enable: 1, enable tune window time to custom_beacon_period; 0, default window time 30ms.
+ * @return 0: success.
+*/
+int wifi_tune_ap_chn_en(int enable);
+
 typedef struct {
     char country_code[2];
     int count;
