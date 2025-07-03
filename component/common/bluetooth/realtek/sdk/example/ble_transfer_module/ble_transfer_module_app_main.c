@@ -43,6 +43,7 @@
 #include <wifi/wifi_conf.h>
 #include "bas.h"
 #include "rtk_coex.h"
+#include <ble_transfer_module_service.h>
 
 /** @defgroup  CENTRAL_CLIENT_DEMO_MAIN Central Client Main
     * @brief Main file to initialize hardware and BT stack and start task scheduling
@@ -56,6 +57,8 @@
 #define DEFAULT_SCAN_INTERVAL     0x60
 /** @brief Default scan window (units of 0.625ms, 0x520=820ms) */
 #define DEFAULT_SCAN_WINDOW       0x30
+
+static bool s_ble_transfer_app_enable = false;
 
 extern T_SERVER_ID transfer_srv_id; /**< Simple ble service id*/
 extern bool bt_trace_uninit(void);
@@ -96,6 +99,16 @@ static const uint8_t adv_data[] =
 /*============================================================================*
  *                              Functions
  *============================================================================*/
+/**
+ * @brief  Check whether ble transfer module app is enable
+ *
+ * @return bool
+ */
+bool ble_transfer_app_is_enable(void)
+{
+	return s_ble_transfer_app_enable;
+}
+
 /**
  * @brief  Config bt stack related feature
  *
@@ -221,7 +234,7 @@ void ble_transfer_app_le_gap_init(void)
 		{
 			gaps_set_parameter(GAPS_PARAM_APPEARANCE, sizeof(uint16_t), &appearance_local.local_appearance);
 		}
-	
+
 		if (flash_load_local_name(&local_device_name) == 0)
 		{
 			gaps_set_parameter(GAPS_PARAM_DEVICE_NAME, GAP_DEVICE_NAME_LEN, local_device_name.local_name);
@@ -251,7 +264,7 @@ void ble_transfer_app_le_profile_init(void)
 
 	server_init(1);
 	transfer_srv_id = ble_transfer_module_service_add_service((void *)ble_transfer_app_profile_callback);
-	server_register_app_cb((void *)ble_transfer_app_profile_callback);
+	server_register_app_cb(ble_transfer_app_profile_callback);
 
 
 }
@@ -288,12 +301,17 @@ int ble_transfer_app_init(void)
 	//(void) bt_stack_already_on;
 	T_GAP_DEV_STATE new_state;
 
+	if (s_ble_transfer_app_enable == true) {
+		printf("[BLE Transfer]BLE transfer mmodule app already init\r\n");
+		return -1;
+	}
+
 	//uint32_t random_1 = 0;
 	/*Wait WIFI init complete*/
 	while(!(wifi_is_up(RTW_STA_INTERFACE) || wifi_is_up(RTW_AP_INTERFACE))) {
 		os_delay(1000);
 	}
-	
+
 	//judge BLE central is already on
 	le_get_gap_param(GAP_PARAM_DEV_STATE , &new_state);
 	if (new_state.gap_init_state == GAP_INIT_STATE_STACK_READY) {
@@ -311,12 +329,19 @@ int ble_transfer_app_init(void)
 		le_get_gap_param(GAP_PARAM_DEV_STATE , &new_state);
 	}while(new_state.gap_init_state != GAP_INIT_STATE_STACK_READY);
 
+	s_ble_transfer_app_enable = true;
+
 	return 0;
 }
 
 extern void gcs_delete_client(void);
 int ble_transfer_app_deinit(void)
 {
+	if (s_ble_transfer_app_enable == false) {
+		printf("[BLE Transfer]BLE transfer mmodule app already deinit\r\n");
+		return -1;
+	}
+	s_ble_transfer_app_enable = false;
 	memset((void *)bt_stack_le_conn_handle, 0, sizeof(uint16_t)*BLE_TRANSFER_APP_MAX_LINKS);
 	memset((void *)is_pairing_initiator, 0, sizeof(uint8_t)*BLE_TRANSFER_APP_MAX_LINKS);
 	memset((void *)disc_read_type, 0, sizeof(ble_transfer_module_disc_read_type_t)*BLE_TRANSFER_CENTRAL_APP_MAX_LINKS);

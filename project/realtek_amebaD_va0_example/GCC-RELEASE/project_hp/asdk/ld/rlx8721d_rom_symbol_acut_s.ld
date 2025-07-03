@@ -142,7 +142,6 @@ SECTIONS
     RSIP_MMU_Config = 0x10102f0d;
     RSIP_MMU_Cmd = 0x10102f31;
     PAD_PullCtrl = 0x10102f6d;
-    PAD_CMD = 0x10102f99;
     Pinmux_Config = 0x10102fb9;
     Pinmux_ConfigGet = 0x10102fd9;
     Pinmux_UartLogCtrl = 0x10102fe9;

@@ -777,4 +777,80 @@ GDMA_GetIrqNum(u8 GDMA_Index, u8 GDMA_ChNum)
 
 	return IrqNum;
 }
+
+/**
+  * @brief  Suspend a channel.
+  * @param  GDMA_Index: 0.
+  * @param  GDMA_ChNum: 0 ~ 7.
+  */
+__weak  void
+GDMA_Suspend(u8 GDMA_Index, u8 GDMA_ChNum)
+{
+	GDMA_TypeDef *GDMA = ((GDMA_TypeDef *) GDMA_BASE);
+	if (TrustZone_IsSecure()) {
+		GDMA = ((GDMA_TypeDef *) GDMA0S_REG_BASE);
+	}
+	/* Check the parameters */
+	assert_param(IS_GDMA_Index(GDMA_Index));
+	assert_param(IS_GDMA_ChannelNum(GDMA_ChNum));
+
+	GDMA->CH[GDMA_ChNum].CFG_LOW |= BIT_CFGx_L_CH_SUSP;
+}
+
+/**
+  * @brief  Resume a channel.
+  * @param  GDMA_Index: 0.
+  * @param  GDMA_ChNum: 0 ~ 7.
+  */
+__weak  void
+GDMA_Resume(u8 GDMA_Index, u8 GDMA_ChNum)
+{
+	GDMA_TypeDef *GDMA = ((GDMA_TypeDef *) GDMA_BASE);
+	if (TrustZone_IsSecure()) {
+		GDMA = ((GDMA_TypeDef *) GDMA0S_REG_BASE);
+	}
+	/* Check the parameters */
+	assert_param(IS_GDMA_Index(GDMA_Index));
+	assert_param(IS_GDMA_ChannelNum(GDMA_ChNum));
+
+	GDMA->CH[GDMA_ChNum].CFG_LOW &= ~BIT_CFGx_L_CH_SUSP;
+}
+
+/**
+  * @brief  Abort a channel.
+  * @param  GDMA_Index: 0.
+  * @param  GDMA_ChNum: 0 ~ 7.
+  * @retval TRUE/FALSE
+  */
+__weak  u8
+GDMA_Abort(u8 GDMA_Index, u8 GDMA_ChNum)
+{
+	u32 timeout = 500;
+	GDMA_TypeDef *GDMA = ((GDMA_TypeDef *) GDMA_BASE);
+	if (TrustZone_IsSecure()) {
+		GDMA = ((GDMA_TypeDef *) GDMA0S_REG_BASE);
+	}
+	/* Check the parameters */
+	assert_param(IS_GDMA_Index(GDMA_Index));
+	assert_param(IS_GDMA_ChannelNum(GDMA_ChNum));
+
+	GDMA_Suspend(GDMA_Index, GDMA_ChNum);
+	/*If ChEnReg[GDMA_ChNum] is not equal to 0, it means that
+	  the channel is working and the Suspend status must be checked.*/
+	while (timeout--) {
+		if ((GDMA->ChEnReg & BIT(GDMA_ChNum)) == 0 || \
+			(GDMA->CH[GDMA_ChNum].CFG_LOW & BIT_CFGx_L_INACTIVE)) {
+			break;
+		}
+	}
+	/*If the channel is still active after the timeout period, resume is required*/
+	if (timeout == 0) {
+		GDMA_Resume(GDMA_Index, GDMA_ChNum);
+		return FALSE;
+	}
+
+	GDMA_Cmd(GDMA_Index, GDMA_ChNum, DISABLE);
+	return TRUE;
+}
+
 /******************* (C) COPYRIGHT 2016 Realtek Semiconductor *****END OF FILE****/

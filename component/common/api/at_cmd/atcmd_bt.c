@@ -72,6 +72,14 @@ extern void *ble_transfer_io_queue_handle;
 #include "breeze_hal_ble.h"
 #endif
 
+
+#if defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR
+#include "ble_wifimate_configurator_app.h"
+#endif
+#if defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE
+#include "ble_wifimate_device_app.h"
+#endif
+
 uint8_t bt_cmd_type = 0x00;
 
 void set_bt_cmd_type(uint8_t cmd_type)
@@ -174,7 +182,9 @@ uint8_t bt_command_type(uint16_t command_type)
 	(defined(CONFIG_BT_MESH_CENTRAL) && CONFIG_BT_MESH_CENTRAL) || \
 	(defined(CONFIG_BT_MESH_PERIPHERAL) && CONFIG_BT_MESH_PERIPHERAL) || \
 	(defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET) || \
-	(defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE))
+	(defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE) || \
+	(defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE) || \
+	(defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR))
 char bt_at_cmd_buf[256] = {0};
 void bt_at_cmd_send_msg(uint16_t subtype, void *arg)
 {
@@ -1747,7 +1757,405 @@ exit:
 }
 #endif
 
+#if ((defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE) || \
+	(defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE) || \
+	(defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR))
+#define BT_AT_TIMEOUT_FOREVER          0xffffffffUL
+
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+
+static struct bt_at_sync_t bt_at_sync = {0};
+
+uint16_t bt_at_sync_cmd_type_get(uint16_t group, const char *cmd_str)
+{
+	uint16_t cmd_type = BT_AT_SYNC_CMD_TYPE_NONE;
+
+	switch (group) {
+		case BT_ATCMD_BLEGAP: {
+			if (!strcmp(cmd_str, "adv")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_ADV;
+			} else if (!strcmp(cmd_str, "scan")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_SCAN;
+			} else if (!strcmp(cmd_str, "conn")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_CONN;
+			} else if (!strcmp(cmd_str, "disconn")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_DISCONN;
+			} else if (!strcmp(cmd_str, "conn_update")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_CONN_UPDATE;
+			} else if (!strcmp(cmd_str, "bond_del")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_BOND_DEL;
+			} else if (!strcmp(cmd_str, "bond_clear")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_BOND_CLEAR;
+			} else if (!strcmp(cmd_str, "wl_add")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_WL_ADD;
+			} else if (!strcmp(cmd_str, "wl_remove")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_WL_REMOVE;
+			} else if (!strcmp(cmd_str, "wl_clear")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GAP_WL_CLEAR;
+			} else {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_OTHER;
+			}
+			break;
+		}
+		case BT_ATCMD_BLEGATTC: {
+			if (!strcmp(cmd_str, "disc")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GATTC_DISC;
+			} else if (!strcmp(cmd_str, "read")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GATTC_READ;
+			} else if (!strcmp(cmd_str, "write")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GATTC_WRITE;
+			} else {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_OTHER;
+			}
+			break;
+		}
+		case BT_ATCMD_BLEGATTS: {
+			if (!strcmp(cmd_str, "notify")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GATTS_NOTIFY;
+			} else if (!strcmp(cmd_str, "indicate")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_GATTS_INDICATE;
+			} else {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_OTHER;
+			}
+			break;
+		}
+		case BT_ATCMD_BLE_WIFIMATE_CONFIGURATOR: {
+			if (!strcmp(cmd_str, "wifi_scan")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_WIFIMATE_CONFIGURATOR_WIFI_SCAN;
+			} else if (!strcmp(cmd_str, "wifi_connect")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_WIFIMATE_CONFIGURATOR_WIFI_CONNECT;
+			} else if (!strcmp(cmd_str, "encrypt_set")) {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_BLE_WIFIMATE_CONFIGURATOR_ENCRYPT_SET;
+			} else {
+				cmd_type = BT_AT_SYNC_CMD_TYPE_OTHER;
+			}
+			break;
+		}
+		default: {
+			cmd_type = BT_AT_SYNC_CMD_TYPE_OTHER;
+			break;
+		}
+	}
+
+	return cmd_type;
+
+}
+
+uint16_t bt_at_sync_init(uint16_t group, const char* cmd_str)
+{
+
+	memset(&bt_at_sync, 0, sizeof(bt_at_sync));
+
+	if (false == osif_sem_create(&bt_at_sync.psem, 0, 1)) {
+		printf("[bt_at_sync] create sem fail\r\n");
+		return BT_AT_ERR_OS_OPERATION;
+	}
+
+	bt_at_sync.exec = TRUE;
+	bt_at_sync.cmd_type = bt_at_sync_cmd_type_get(group, cmd_str);
+	bt_at_sync.conn_handle = BT_AT_SYNC_CONN_HANDLE_INVALID;
+
+	return BT_AT_OK;
+}
+
+void bt_at_sync_update_conn_hdl(uint16_t conn_hdl)
+{
+	bt_at_sync.conn_handle = conn_hdl;
+}
+
+void bt_at_sync_deinit(void)
+{
+	if (bt_at_sync.psem) {
+		osif_sem_delete(bt_at_sync.psem);
+		bt_at_sync.psem = NULL;
+	}
+
+	memset(&bt_at_sync, 0, sizeof(bt_at_sync));
+}
+
+uint16_t bt_at_sync_sem_take(void)
+{
+	if (bt_at_sync.exec) {
+		if (bt_at_sync.psem != NULL) {
+			if (false == osif_sem_take(bt_at_sync.psem, BT_AT_TIMEOUT_FOREVER)) {
+				return BT_AT_ERR_CMD_TIMEOUT;
+			}
+		}
+	}
+
+	return BT_AT_OK;
+}
+
+void bt_at_sync_sem_give(void)
+{
+	if (bt_at_sync.exec) {
+		if (bt_at_sync.psem != NULL) {
+			osif_sem_give(bt_at_sync.psem);
+		}
+	}
+}
+
+uint16_t bt_at_sync_sem_wait_check()
+{
+	if (!bt_at_sync.exec) {
+		printf("%s sync disable\r\n", __func__);
+		return FALSE;
+	}
+
+	if ((bt_at_sync.cmd_type == BT_AT_SYNC_CMD_TYPE_OTHER) ||
+		(bt_at_sync.cmd_type == BT_AT_SYNC_CMD_TYPE_NONE)  ||
+		(bt_at_sync.cmd_type == BT_AT_SYNC_CMD_TYPE_MAX)) {
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+uint8_t bt_at_sync_event_match_check(uint8_t cmd_type)
+{
+	if (!bt_at_sync.exec) {
+		printf("%s sync disable\r\n", __func__);
+		return FALSE;
+	}
+
+	return ((bt_at_sync.cmd_type == cmd_type) ? TRUE : FALSE);
+}
+
+uint16_t bt_at_sync_get_result(void)
+{
+	return bt_at_sync.result;
+}
+
+void bt_at_sync_set_result_by_evt_cause(int res)
+{
+	bt_at_sync.result = (res == 0) ? BT_AT_OK : BT_AT_ERR_LOWER_STACK;
+}
+
+void bt_at_sync_set_result(int res)
+{
+	bt_at_sync.result = res;
+}
+
+void bt_at_sync_disconnect_hdl(uint16_t conn_handle)
+{
+	if (!bt_at_sync.exec) {
+		printf("%s bt_at_sync.exec=%d\r\n", __func__, bt_at_sync.exec);
+		return;
+	}
+
+	if (bt_at_sync.conn_handle != conn_handle) {
+		printf("%s conn_handle unmatch, conn_handle=%d bt_at_sync.conn_handle=%d\r\n",
+				__func__, conn_handle, bt_at_sync.conn_handle);
+		return;
+	}
+
+	if (bt_at_sync_event_match_check(BT_AT_SYNC_CMD_TYPE_BLE_GAP_DISCONN)) {
+		bt_at_sync.result = BT_AT_OK;
+	} else {
+		bt_at_sync.result = BT_AT_ERR_NO_CONNECTION;
+	}
+
+	if (bt_at_sync.psem != NULL) {
+		osif_sem_give(bt_at_sync.psem);
+	}
+	return;
+}
+
+#endif /* BT_AT_SYNC */
+#endif /* CONFIG_BLE_TRANSFER_MODULE || CONFIG_BLE_WIFIMATE_DEVICE || CONFIG_BLE_WIFIMATE_CONFIGURATOR */
+
 #if ATCMD_VER == ATVER_2
+#if ((defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE) || \
+	(defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE) || \
+	(defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR))
+#if defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE
+extern int ble_wifimate_device_app_init(uint16_t timeout);
+extern int ble_wifimate_device_app_deinit(void);
+extern void ble_wifimate_device_app_send_msg(uint16_t subtype, void *buf);
+extern bool ble_wifimate_device_app_is_enable(void);
+static uint16_t ble_wifimate_device_atcmd_hdl(char *buf)
+{
+	int op;
+	int argc = 0;
+	uint16_t ret = 0;
+	char *argv[MAX_ARGC] = {0};
+
+	if (!buf) {
+		return BT_AT_ERR_PARAM_INVALID;
+	}
+
+	argc = parse_param(buf, argv);
+	if (argc < 2) {
+		return BT_AT_ERR_PARAM_INVALID;
+	}
+
+	if (!strcmp(argv[1], "ble_wifimate_device")) {
+		if (argc < 3) {
+			return BT_AT_ERR_PARAM_INVALID;
+		}
+		op = atoi(argv[2]);
+		if (op == 1) {
+			uint16_t timeout = 60; //60s
+			AT_PRINTK("[AT+BTDEMO] ble wifimate device init\r\n");
+			if (argc == 4) {
+				timeout = (uint16_t)atoi(argv[3]);
+				AT_PRINTK("Ble wifimate adv timeout=%d\r\n", timeout);
+			}
+			if (ble_wifimate_device_app_init(timeout)) {
+				AT_PRINTK("[AT+BTDEMO] ble wifimate device example init failed!\r\n");
+				ret = BT_AT_FAIL;
+			}
+		} else if (op == 0) {
+			AT_PRINTK("[AT+BTDEMO] ble wifimate device deinit\r\n");
+			if (ble_wifimate_device_app_deinit()) {
+				AT_PRINTK("[AT+BTDEMO] ble wifimate configurator example init failed!\r\n");
+				ret = BT_AT_FAIL;
+			}
+		} else {
+			ret = BT_AT_FAIL;
+		}
+	} else if (!strcmp(argv[1], "adv")) {
+		int op;
+		if (argc != 3) {
+			return BT_AT_ERR_PARAM_INVALID;
+		}
+
+		ret = bt_at_sync_init(BT_ATCMD_BLEGAP, argv[1]);
+		if (ret != BT_AT_OK) {
+			return ret;
+		}
+		op = atoi(argv[2]);
+		if (op == 1) {
+			ble_wifimate_device_app_send_msg(BLE_WIFIMATE_DEVICE_ADV_START, NULL);
+		} else if (op == 0){
+			ble_wifimate_device_app_send_msg(BLE_WIFIMATE_DEVICE_ADV_STOP, NULL);
+		}
+
+		ret = bt_at_sync_sem_take();
+		if (ret == BT_AT_OK) {
+			ret = bt_at_sync_get_result();
+		}
+		bt_at_sync_deinit();	
+	}
+
+	return ret;
+}
+#endif /* CONFIG_BLE_WIFIMATE_DEVICE */
+
+#if defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR
+extern int ble_wifimate_configurator_app_init(void);
+extern int ble_wifimate_configurator_app_deinit(void);
+extern void ble_wifimate_configurator_app_send_msg(uint16_t subtype, void *buf);
+extern bool ble_wifimate_configurator_app_is_enable(void);
+
+static uint16_t ble_wifimate_configurator_atcmd_hdl(char *buf)
+{
+	int argc = 0;
+	bool at_sync = false;
+	uint16_t subtype = 0;
+	uint16_t ret = BT_AT_OK;
+	uint16_t group = 0;
+	char *argv[MAX_ARGC] = {0};
+	char *send_buf = NULL;
+
+	if (!buf) {
+		return BT_AT_ERR_PARAM_INVALID;
+	}
+
+	argc = parse_param(buf, argv);
+	if (argc < 2) {
+		return BT_AT_ERR_PARAM_INVALID;
+	}
+
+	if (!strcmp(argv[1], "ble_wifimate_configurator")) {
+		if (argc < 3) {
+			return BT_AT_ERR_PARAM_INVALID;
+		}
+		if (!strcmp(argv[2], "1")) {
+			AT_PRINTK("[AT+BTDEMO] ble wifimate configurator init\r\n");
+			if (ble_wifimate_configurator_app_init() != 0) {
+				AT_PRINTK("[AT+BTDEMO] ble wifimate configurator init fail\r\n");
+				ret = BT_AT_FAIL;
+			}
+		} else if (!strcmp(argv[2], "0")) {
+			AT_PRINTK("[AT+BTDEMO] ble wifimate configurator deinit\r\n");
+			if (ble_wifimate_configurator_app_deinit() != 0) {
+				AT_PRINTK("[AT+BTDEMO] ble wifimate configurator deinit fail\r\n");
+				ret = BT_AT_FAIL;
+			}
+		} else if (!strcmp(argv[2], "wifi_scan")) {
+			at_sync = true;
+			group = BT_ATCMD_BLE_WIFIMATE_CONFIGURATOR;
+			subtype = BLE_WIFIMATE_CONFIGURATOR_WIFI_SCAN;
+			send_buf = buf;
+		} else if (!strcmp(argv[2], "wifi_connect")) {
+			at_sync = true;
+			group = BT_ATCMD_BLE_WIFIMATE_CONFIGURATOR;
+			subtype = BLE_WIFIMATE_CONFIGURATOR_WIFI_CONNECT;
+			send_buf = buf;
+		} else if (!strcmp(argv[2], "encrypt_set")) {
+			at_sync = true;
+			group = BT_ATCMD_BLE_WIFIMATE_CONFIGURATOR;
+			subtype = BLE_WIFIMATE_CONFIGURATOR_ENCRYPT_SET;
+			send_buf = buf;
+		} else {
+			ret = BT_AT_FAIL;
+		}
+	} else if (!strcmp(argv[1], "scan")) {
+		int op;
+		if (argc != 3) {
+			AT_PRINTK("[AT+BLEGAP] invalid param number\r\n");
+			return BT_AT_ERR_PARAM_INVALID;
+		}
+		op = atoi(argv[2]);
+		at_sync = true;
+		if (op == 1) { //scan start
+			subtype = BLE_WIFIMATE_CONFIGURATOR_SCAN_START;
+		} else if (op == 0) { //scan stop
+			subtype = BLE_WIFIMATE_CONFIGURATOR_SCAN_STOP;
+		}
+		group = BT_ATCMD_BLEGAP;
+	} else if (!strcmp(argv[1], "conn")) {
+		if (argc != 4) {
+			AT_PRINTK("[AT+BLEGAP] invalid param number\r\n");
+			return BT_AT_ERR_PARAM_INVALID;
+		}
+		at_sync = true;
+		subtype = BLE_WIFIMATE_CONFIGURATOR_BLE_CONNECT;
+		send_buf = buf;
+		group = BT_ATCMD_BLEGAP;
+	}
+
+	if (at_sync) {
+		char* cmd_str = NULL;
+		if (group == BT_ATCMD_BLEGAP) {
+			cmd_str = argv[1];
+		} else if (group == BT_ATCMD_BLE_WIFIMATE_CONFIGURATOR) {
+			cmd_str = argv[2];
+		} else {
+			AT_PRINTK("invalid cmd group\r\n");
+			return BT_AT_ERR_PARAM_INVALID;
+		}
+
+		ret = bt_at_sync_init(group, cmd_str);
+		if (ret != BT_AT_OK) {
+			AT_PRINTK("at cmd sync init fail\r\n");
+			return ret;
+		}
+
+		ble_wifimate_configurator_app_send_msg(subtype, send_buf);
+		
+		ret = bt_at_sync_sem_take();
+		if (ret == BT_AT_OK) {
+			ret = bt_at_sync_get_result();
+		}
+		bt_at_sync_deinit();
+	}
+
+	return ret;
+}
+#endif /* CONFIG_BLE_WIFIMATE_CONFIGURATOR */
+
 #if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
 extern int ble_transfer_app_init(void);
 extern int ble_transfer_app_deinit(void);
@@ -1756,7 +2164,9 @@ extern int ble_transfer_at_cmd_set_name(int argc, char **argv);
 extern int ble_transfer_at_cmd_get_uuid(int argc, char **argv);
 extern int ble_transfer_at_cmd_set_uuid(int argc, char **argv);
 extern int ble_transfer_at_cmd_read_val(int argc, char **argv);
-int fATBTDEMO(void *arg)
+extern bool ble_transfer_app_is_enable(void);
+#endif /* CONFIG_BLE_TRANSFER_MODULE */
+void fATBTDEMO(void *arg)
 {
 	int argc = 0;
 	char *argv[MAX_ARGC] = {0};
@@ -1766,19 +2176,26 @@ int fATBTDEMO(void *arg)
 	if (arg) {
 		strncpy(bt_at_cmd_buf, arg, sizeof(bt_at_cmd_buf));
 		argc = parse_param(bt_at_cmd_buf, argv);
-	} 
+	}
 
-	if (argc < 3 || argc > 5) {
+	if (argc < 3 || argc > 7) {
 		AT_PRINTK("[AT+BTDEMO] Error: Wrong input args number!");
+		ret = BT_AT_ERR_PARAM_INVALID;
+		goto exit;
 	}
 
 	if((strcmp("transfer_module", argv[1])) == 0) {
+#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
 		if(argc == 3) {
 			if((strcmp("0", argv[2]) == 0) || (strcmp("1", argv[2]) == 0)) {
 				if(strcmp("1", argv[2]) == 0) {
-					ret = ble_transfer_app_init();
+					if (ble_transfer_app_init() != 0) {
+						ret = BT_AT_FAIL;
+					}
 				} else if(strcmp("0", argv[2]) == 0) {
-					ret = ble_transfer_app_deinit();
+					if (ble_transfer_app_deinit() != 0) {
+						ret = BT_AT_FAIL;
+					}
 				}
 			} else if(strcmp("get_name", argv[2]) == 0) {
 				ret = ble_transfer_at_cmd_get_name(argc - 2, &argv[2]);
@@ -1798,22 +2215,34 @@ int fATBTDEMO(void *arg)
 				ret = ble_transfer_at_cmd_read_val(argc - 2, &argv[2]);
 			}else {
 				AT_PRINTK("[AT+BTDEMO] Error: Wrong input args number!");
-				ret = -1;
+				ret = BT_AT_ERR_PARAM_INVALID;
 			}
-		} 
+		}
+#endif /* CONFIG_BLE_TRANSFER_MODULE */
+	} else if((strcmp("ble_wifimate_device", argv[1])) == 0) {
+#if defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE
+		ret = ble_wifimate_device_atcmd_hdl(bt_at_cmd_buf);
+#endif /* CONFIG_BLE_WIFIMATE_DEVICE */
+	} else if((strcmp("ble_wifimate_configurator", argv[1])) == 0) {
+#if defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR		
+		ret = ble_wifimate_configurator_atcmd_hdl(bt_at_cmd_buf);
+#endif /* CONFIG_BLE_WIFIMATE_CONFIGURATOR */
 	} else {
-		AT_PRINTK("Error: wrong parameter (%s) for transfer module example!\r\n", argv[1]);
-		ret = -1;
+		AT_PRINTK("Error: wrong parameter (%s) for BT example!\r\n", argv[1]);
+		ret = BT_AT_ERR_PARAM_INVALID;
 	}
+
+exit:
 	if(ret == 0) {
-		at_printf("OK\r\n");
+		BT_AT_PRINT("OK\r\n");
 	}else {
-		at_printf("ERROR\r\n");
+		BT_AT_PRINT("ERROR:%d\r\n", ret);
 	}
 }
 
-int fATBLEGAP(void *arg)
+void fATBLEGAP(void *arg)
 {
+	uint16_t ret = 0;
 	int argc = 0;
 	char *argv[MAX_ARGC] = {0};
 
@@ -1823,23 +2252,65 @@ int fATBLEGAP(void *arg)
 		strncpy(bt_at_cmd_buf, arg, sizeof(bt_at_cmd_buf));
 		argc = parse_param(bt_at_cmd_buf, argv);
 	} else {
-		return -1;
+		BT_AT_PRINT("ERROR:%d\r\n", BT_AT_ERR_PARAM_INVALID);
+		return;
 	}
 
 	if (argc < 2) {
 		AT_PRINTK("[AT_PRINTK] ERROR: input parameter error!\n\r");
-		return -1;
+		BT_AT_PRINT("ERROR:%d\r\n", BT_AT_ERR_PARAM_INVALID);
+		return;
 	}
+#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+	if (ble_transfer_app_is_enable()) {
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+		ret = bt_at_sync_init(BT_ATCMD_BLEGAP, argv[1]);
+		if (ret != BT_AT_OK) {
+			BT_AT_PRINT("ERROR:%d\r\n", ret);
+			return;
+		}
+#endif
 
-	bt_at_cmd_send_msg(BT_ATCMD_BLEGAP, bt_at_cmd_buf);
-	return;
+		bt_at_cmd_send_msg(BT_ATCMD_BLEGAP, bt_at_cmd_buf);
 
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+		ret = bt_at_sync_sem_take();
+		if (ret == BT_AT_OK) {
+			ret = bt_at_sync_get_result();
+		}
+		bt_at_sync_deinit();
+#endif
+	}
+#endif /* CONFIG_BLE_TRANSFER_MODULE */
+
+#if defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE
+	if (strcmp(argv[1], "adv") == 0) {
+		if (ble_wifimate_device_app_is_enable()) {
+			ret = ble_wifimate_device_atcmd_hdl(bt_at_cmd_buf);
+		}
+	}
+#endif
+#if defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR
+	if ((strcmp(argv[1], "scan") == 0) ||
+		(strcmp(argv[1], "conn") == 0)) {
+		if (ble_wifimate_configurator_app_is_enable()) {
+			ret = ble_wifimate_configurator_atcmd_hdl(bt_at_cmd_buf);
+		}
+	}
+#endif
+
+	if(ret == 0) {
+		BT_AT_PRINT("OK\r\n");
+	}else {
+		BT_AT_PRINT("ERROR:%d\r\n", ret);
+	}
 }
 
-int fATBLEGATTC(void *arg)
+void fATBLEGATTC(void *arg)
 {
 	int argc = 0;
 	char *argv[MAX_ARGC] = {0};
+	uint16_t ret = 0;
 
 	memset(bt_at_cmd_buf, 0, 256);
 
@@ -1847,22 +2318,46 @@ int fATBLEGATTC(void *arg)
 		strncpy(bt_at_cmd_buf, arg, sizeof(bt_at_cmd_buf));
 		argc = parse_param(bt_at_cmd_buf, argv);
 	} else {
-		return -1;
+		BT_AT_PRINT("ERROR:%d\r\n", BT_AT_ERR_PARAM_INVALID);
+		return;
 	}
 
 	if (argc < 2) {
 		AT_PRINTK("[AT_PRINTK] ERROR: input parameter error!\n\r");
-		return -1;
+		BT_AT_PRINT("ERROR:%d\r\n", BT_AT_ERR_PARAM_INVALID);
+		return;
 	}
+
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+	ret = bt_at_sync_init(BT_ATCMD_BLEGATTC, argv[1]);
+	if (ret != BT_AT_OK) {
+		BT_AT_PRINT("ERROR:%d\r\n", ret);
+		return;
+	}
+#endif
 
 	bt_at_cmd_send_msg(BT_ATCMD_BLEGATTC, bt_at_cmd_buf);
-	return;
+
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+	ret = bt_at_sync_sem_take();
+	if (ret == BT_AT_OK) {
+		ret = bt_at_sync_get_result();
+	}
+	bt_at_sync_deinit();
+
+	if(ret == 0) {
+		BT_AT_PRINT("OK\r\n");
+	}else {
+		BT_AT_PRINT("ERROR:%d\r\n", ret);
+	}
+#endif
 }
 
-int fATBLEGATTS(void *arg)
+void fATBLEGATTS(void *arg)
 {
 	int argc = 0;
 	char *argv[MAX_ARGC] = {0};
+	uint16_t ret = 0;
 
 	memset(bt_at_cmd_buf, 0, 256);
 
@@ -1870,16 +2365,39 @@ int fATBLEGATTS(void *arg)
 		strncpy(bt_at_cmd_buf, arg, sizeof(bt_at_cmd_buf));
 		argc = parse_param(bt_at_cmd_buf, argv);
 	} else {
-		return -1;
+		BT_AT_PRINT("ERROR:%d\r\n", BT_AT_ERR_PARAM_INVALID);
+		return;
 	}
 
 	if (argc < 2) {
 		AT_PRINTK("[AT_PRINTK] ERROR: input parameter error!\n\r");
-		return -1;
+		BT_AT_PRINT("ERROR:%d\r\n", BT_AT_ERR_PARAM_INVALID);
+		return;
 	}
 
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+	ret = bt_at_sync_init(BT_ATCMD_BLEGATTS, argv[1]);
+	if (ret != BT_AT_OK) {
+		BT_AT_PRINT("ERROR:%d\r\n", ret);
+		return;
+	}
+#endif
+
 	bt_at_cmd_send_msg(BT_ATCMD_BLEGATTS, bt_at_cmd_buf);
-	return;
+
+#if defined(BT_AT_SYNC) && BT_AT_SYNC
+	ret = bt_at_sync_sem_take();
+	if (ret == BT_AT_OK) {
+		ret = bt_at_sync_get_result();
+	}
+	bt_at_sync_deinit();
+
+	if(ret == 0) {
+		BT_AT_PRINT("OK\r\n");
+	}else {
+		BT_AT_PRINT("ERROR:%d\r\n", ret);
+	}
+#endif
 }
 #endif
 #endif
@@ -1907,6 +2425,133 @@ void fATBV(void *arg)
 	AT_PRINTK("[ATBV] btgap_revision = %d", bt_version.btgap_revision);
 	AT_PRINTK("[ATBV] btgap_buildnum = %d", bt_version.btgap_buildnum);
 }
+
+#if ((defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE) || \
+	 (defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR))
+#if defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE
+extern int ble_wifimate_device_app_init(uint16_t timeout);
+extern int ble_wifimate_device_app_deinit(void);
+extern void ble_wifimate_device_app_send_msg(uint16_t subtype, void *buf);
+#endif /* CONFIG_BLE_WIFIMATE_DEVICE */
+#if defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR
+extern int ble_wifimate_configurator_app_init(void);
+extern int ble_wifimate_configurator_app_deinit(void);
+extern void ble_wifimate_configurator_app_send_msg(uint16_t subtype, void *buf);
+#endif /* CONFIG_BLE_WIFIMATE_CONFIGURATOR */
+char ble_wifimate_buf[256] = {0};
+void fATBw(void *arg)
+{
+	int argc = 0;
+	int param0 = 0;
+	int param1 = 0;
+	char *argv[MAX_ARGC] = {0};
+
+	if (arg) {
+		memset(ble_wifimate_buf, 0, sizeof(ble_wifimate_buf));
+		strncpy(ble_wifimate_buf, arg, sizeof(ble_wifimate_buf));
+		argc = parse_param(arg, argv);
+	} else {
+		goto exit;
+	}
+
+	if (argc < 3) {
+		AT_PRINTK("[AT_PRINTK] ERROR: input parameter error!\r\n");
+		goto exit;
+	}
+
+	param0 = atoi(argv[1]);
+	param1 = atoi(argv[2]);
+
+	if (param0 == 0) { //ble wifimate configurator example
+#if (defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR)
+		if (param1 == 1) { //init: ATBw=0,1
+			AT_PRINTK("[ATBw]:ble wifimate configurator init\r\n");
+			ble_wifimate_configurator_app_init();
+		} else if (param1 == 0) { //deinit: ATBw=0,0
+			AT_PRINTK("[ATBw]:ble wifimate configurator deinit\r\n");
+			ble_wifimate_configurator_app_deinit();
+		} else if (param1 == 2) { //scan
+			int op;
+			if (argc != 4) {
+				goto exit;
+			}
+			op = atoi(argv[3]);
+			if (op == 1) { //scan start: ATBw=0,2,1
+				ble_wifimate_configurator_app_send_msg(BLE_WIFIMATE_CONFIGURATOR_SCAN_START, NULL);
+			} else if (op == 0) { //scan stop: ATBw=0,2,0
+				ble_wifimate_configurator_app_send_msg(BLE_WIFIMATE_CONFIGURATOR_SCAN_STOP, NULL);
+			}
+		} else if (param1 == 3) { //ble connect : ATBw=0,3,<addr>
+			if (argc != 4) {
+				goto exit;
+			}
+			ble_wifimate_configurator_app_send_msg(BLE_WIFIMATE_CONFIGURATOR_BLE_CONNECT, ble_wifimate_buf);
+		} else if (param1 == 4) { //wifi scan: ATBw=0,4,<conn_handle>
+			if (argc != 4) {
+				goto exit;
+			}
+			ble_wifimate_configurator_app_send_msg(BLE_WIFIMATE_CONFIGURATOR_WIFI_SCAN, ble_wifimate_buf);
+		} else if (param1 == 5) { //wifi connect: ATBw=0,5,<conn_handle>,<ssid>,<security>[,<pw>]
+			if ((argc != 6) && (argc != 7)) {
+				goto exit;
+			}
+			ble_wifimate_configurator_app_send_msg(BLE_WIFIMATE_CONFIGURATOR_WIFI_CONNECT, ble_wifimate_buf);
+		} else if (param1 == 6) { //encrypt set: ATBw=0,6,<algo_type>[,<key>]
+			if ((argc != 4) && (argc != 5)) {
+				goto exit;
+			}
+			ble_wifimate_configurator_app_send_msg(BLE_WIFIMATE_CONFIGURATOR_ENCRYPT_SET, ble_wifimate_buf);
+		}  else {
+			goto exit;
+		}
+#endif /* CONFIG_BLE_WIFIMATE_CONFIGURATOR */
+	} else if (param0 == 1) { // ble wifimate device exmaple
+#if (defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE)
+
+		if (param1 == 1) { //init: ATBw=1,1
+			uint16_t timeout = 60; //60s
+			AT_PRINTK("[ATBw]:ble wifimate device init\r\n");
+			if (argc == 4) {
+				timeout = (uint16_t)atoi(argv[3]);
+				AT_PRINTK("Ble wifimate adv timeout=%d\r\n", timeout);
+			}
+			ble_wifimate_device_app_init(timeout);
+		} else if (param1 == 0) { //deinit: ATBw=1,0
+			AT_PRINTK("[ATBw]:ble wifimate device deinit\r\n");
+			ble_wifimate_device_app_deinit();
+		} else if (param1 == 2) { //adv: ATBw=1,2,1/0
+			int op;
+			if (argc != 4) {
+				goto exit;
+			}
+			op = atoi(argv[3]);
+			if (op == 1) {
+				ble_wifimate_device_app_send_msg(BLE_WIFIMATE_DEVICE_ADV_START, NULL);
+			} else if (op == 0){
+				ble_wifimate_device_app_send_msg(BLE_WIFIMATE_DEVICE_ADV_STOP, NULL);
+			}
+		} else {
+			goto exit;
+		}
+#endif
+	} else {
+		goto exit;
+	}
+
+	return;
+
+exit:
+	AT_PRINTK("[ATBw] ble wifimate configurator example init/deinit: ATBw=0,1/0");
+	AT_PRINTK("[ATBw] ble wifimate configurator scan start/stop: ATBw=0,2,1/0");
+	AT_PRINTK("[ATBw] ble wifimate configurator ble connect: ATBw=0,3,<addr>");
+	AT_PRINTK("[ATBw] ble wifimate configurator wifi scan: ATBw=0,4,<conn_handle>");
+	AT_PRINTK("[ATBw] ble wifimate configurator wifi connect: ATBw=0,5,<conn_handle>,<ssid>,<security>[,<pw>]");
+	AT_PRINTK("[ATBw] ble wifimate configurator set encrypt: ATBw=0,6,<algo_type>[,<key>]");
+	AT_PRINTK("[ATBw] ble wifimate device example init: ATBw=1,1[,<timeout>]");
+	AT_PRINTK("[ATBw] ble wifimate device example deinit: ATBw=1,0");
+	AT_PRINTK("[ATBw] ble wifimate device adv start/stop: ATBw=1,2,1/0");
+}
+#endif /* CONFIG_BLE_WIFIMATE_DEVICE || CONFIG_BLE_WIFIMATE_CONFIGURATOR */
 
 log_item_t at_bt_items[ ] = {
 #if ATCMD_VER == ATVER_1
@@ -1984,10 +2629,18 @@ log_item_t at_bt_items[ ] = {
 	{"ATBm", fATBm, {NULL, NULL}}, // Start/stop BLE mesh
 #endif
 	{"ATBV", fATBV, {NULL, NULL}}, // Get BT stack version
+#if ((defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE) || \
+	 (defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR))
+	{"ATBw", fATBw, {NULL, NULL}}, // BLE WiFiMate
+#endif
 #elif ATCMD_VER == ATVER_2
-#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+#if ((defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE) || \
+	 (defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE) || \
+	 (defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR))
 	{"+BTDEMO", fATBTDEMO, {NULL, NULL}},
 	{"+BLEGAP", fATBLEGAP, {NULL, NULL}},
+#endif
+#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
 	{"+BLEGATTC", fATBLEGATTC, {NULL, NULL}},
 	{"+BLEGATTS", fATBLEGATTS, {NULL, NULL}},
 #endif
@@ -2000,7 +2653,9 @@ void at_bt_init(void)
 }
 
 #if ATCMD_VER == ATVER_2
-#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+#if ((defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE) || \
+	 (defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE) || \
+	 (defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR))
 void print_bt_at(void *arg){
 	int index;
 	int cmd_len = 0;
@@ -2008,7 +2663,7 @@ void print_bt_at(void *arg){
 	cmd_len = sizeof(at_bt_items)/sizeof(at_bt_items[0]);
 	for(index = 0; index < cmd_len; index++)
 	{
-		at_printf("AT%s\r\n", at_bt_items[index].log_cmd);
+		BT_AT_PRINT("AT%s\r\n", at_bt_items[index].log_cmd);
 	}
 }
 #endif

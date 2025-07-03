@@ -1326,7 +1326,9 @@ void fATSh(void *arg)
 #endif
 
 #if CONFIG_BT
-#if defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE
+#if ((defined(CONFIG_BLE_TRANSFER_MODULE) && CONFIG_BLE_TRANSFER_MODULE) || \
+	 (defined(CONFIG_BLE_WIFIMATE_DEVICE) && CONFIG_BLE_WIFIMATE_DEVICE) || \
+	 (defined(CONFIG_BLE_WIFIMATE_CONFIGURATOR) && CONFIG_BLE_WIFIMATE_CONFIGURATOR))
     /* BT command. */
     at_printf("BT AT Command:\r\n");
     print_bt_at(arg);
