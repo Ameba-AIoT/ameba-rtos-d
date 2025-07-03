@@ -2,6 +2,10 @@
 /*
  * Release Note
  */
+	v1.0.1.251
+	2025/03/20
+	1. Add API to read remote version.
+
 	v1.0.1.250
 	2024/09/26
 	1. Add APIs le_get_conn_id_by_handle and le_get_conn_handle.

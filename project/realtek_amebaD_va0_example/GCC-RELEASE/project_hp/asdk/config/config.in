@@ -386,6 +386,8 @@ if [ "$CONFIG_BT_EN" = "y" ]; then
 		bool "BT_Matter_Multi_ADV"							CONFIG_BLE_MATTER_MULTI_ADV_ON
 	fi
 	bool "BT_Transfer_Module"								CONFIG_BLE_TRANSFER_MODULE
+	bool "BLE WiFiMate Device"								CONFIG_BLE_WIFIMATE_DEVICE
+	bool "BLE WiFiMate Configurator"						CONFIG_BLE_WIFIMATE_CONFIGURATOR
 #If enable BT_Airsync_Config, BT_Simple_Config must enable
 	if [ "$CONFIG_BT_CONFIG $CONFIG_BT_AIRSYNC_CONFIG" = "n y" ]; then
 		define_bool CONFIG_BT_CONFIG						y
@@ -420,6 +422,8 @@ else
 	define_bool CONFIG_BLE_MATTER_ADAPTER n
 	define_bool CONFIG_BLE_MATTER_MULTI_ADV_ON n
 	define_bool CONFIG_BLE_TRANSFER_MODULE n
+	define_bool CONFIG_BLE_WIFIMATE_DEVICE n
+	define_bool CONFIG_BLE_WIFIMATE_CONFIGURATOR n
 fi
 endmenu
 

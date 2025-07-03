@@ -4497,6 +4497,11 @@ int wifi_set_slient_softap(rtw_bool_t enable){
 	return rltk_wlan_set_slient_softap(enable);
 }
 
+extern int rltk_wlan_tune_ap_chn_en(int enable);
+int wifi_tune_ap_chn_en(int enable) {
+	return rltk_wlan_tune_ap_chn_en(enable);
+}
+
 extern int rltk_wlan_txrpt_statistic(const char *ifname, rtw_fw_txrpt_stats_t *txrpt_stats);
 int wifi_get_txrpt_statistic(const char *ifname, rtw_fw_txrpt_stats_t *txrpt_stats)
 {
