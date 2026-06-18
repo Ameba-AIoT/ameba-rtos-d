@@ -488,8 +488,8 @@
 
 #endif
 
-#if (CONFIG_EXAMPLE_AMAZON_FREERTOS)
-#include <amazon_freertos/example_amazon_freertos.h>
+#if defined(CONFIG_EXAMPLE_AMAZON_FREERTOS) && CONFIG_EXAMPLE_AMAZON_FREERTOS
+#include <example_amazon_freertos.h>
 #endif
 
 #if defined(CONFIG_EXAMPLE_SPI_NAND_LITTLEFS) && CONFIG_EXAMPLE_SPI_NAND_LITTLEFS
@@ -1121,7 +1121,7 @@ example_hilink();
 	example_ipv6();
 #endif
 
-#if (CONFIG_EXAMPLE_AMAZON_FREERTOS)
+#if defined(CONFIG_EXAMPLE_AMAZON_FREERTOS) && CONFIG_EXAMPLE_AMAZON_FREERTOS
 	example_amazon_freertos();
 #endif
 

@@ -30,6 +30,10 @@ ifeq ($(CONFIG_MATTER_EN), y)
 MATTER_DIR = $(ABS_ROOTDIR)/../../../../../component/common/application/matter
 MATTER_BUILDDIR = $(MATTER_DIR)/project/amebad
 endif
+ifeq ($(CONFIG_AMAZON_FREERTOS_EN), y)
+AMAZON_FREERTOS_DIR = $(ABS_ROOTDIR)/../../../../../component/common/application/amazon-freertos
+AMAZON_FREERTOS_BUILDDIR = $(AMAZON_FREERTOS_DIR)/project/makefile/amebad
+endif
 
 ifeq ($(COMPILEOS_CYGWIN),Cygwin)
 HOSTNAME_APP = /usr/bin/hostname
@@ -63,6 +67,8 @@ LINK_ROM_LIB =
 LINK_ROM_LIB_NS =
 ifeq ($(CONFIG_MATTER_EN), y)
 LINK_ROM_SYMBOL_NS = $(MATTER_BUILDDIR)/ld/rlx8721d_rom_symbol_acut_matter.ld
+else ifeq ($(CONFIG_AMAZON_FREERTOS_EN), y)
+LINK_ROM_SYMBOL_NS = $(AMAZON_FREERTOS_BUILDDIR)/ld/rlx8721d_rom_symbol_acut_aws.ld
 else
 LINK_ROM_SYMBOL_NS = ./ld/rlx8721d_rom_symbol_acut.ld
 endif

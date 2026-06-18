@@ -441,6 +441,10 @@ Certain platform allows computing and verifying the IP, UDP, TCP and ICMP checks
 #include "lwipopts_matter.h"
 #endif /* CONFIG_MATTER */
 
+#if defined(CONFIG_AMAZON_FREERTOS) && CONFIG_AMAZON_FREERTOS
+#include "lwipopts_aws.h"
+#endif /* CONFIG_AMAZON_FREERTOS */
+
 #ifdef __cplusplus
 }
 #endif

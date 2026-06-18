@@ -25,6 +25,10 @@ ifeq ($(CONFIG_MATTER_EN),y)
 MATTER_BUILDDIR = $(BASEDIR)/component/common/application/matter/project/amebad
 MATTER_INCLUDE  = $(MATTER_BUILDDIR)/Makefile.include.matter
 endif
+ifeq ($(CONFIG_AMAZON_FREERTOS_EN), y)
+AMAZON_FREERTOS_BUILDDIR = $(BASEDIR)/component/common/application/amazon-freertos/project/makefile/amebad
+AMAZON_FREERTOS_INCLUDE  = $(AMAZON_FREERTOS_BUILDDIR)/Makefile.include.aws
+endif
 
 TARGETDIR	=$(BASEDIR)/component/soc/realtek/amebad
 BOOTLOADER	=$(BASEDIR)/component/soc/realtek/amebad/bootloader
@@ -437,6 +441,9 @@ endif
 
 ifeq ($(CONFIG_MATTER_EN), y)
 include $(MATTER_INCLUDE)
+endif
+ifeq ($(CONFIG_AMAZON_FREERTOS_EN), y)
+include $(AMAZON_FREERTOS_INCLUDE)
 endif
 
 #*****************************************************************************#

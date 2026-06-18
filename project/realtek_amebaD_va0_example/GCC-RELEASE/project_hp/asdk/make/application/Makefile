@@ -22,6 +22,9 @@ endif
 ifeq ($(CONFIG_MATTER_EN),y)
 	@make -C $(MATTER_BUILDDIR)/make all
 endif
+ifeq ($(CONFIG_AMAZON_FREERTOS_EN),y)
+	@make -C $(AMAZON_FREERTOS_BUILDDIR)/make all
+endif
 	@make -C xmodem all
 	#@make -C game_headset all
 	#@make -C airkiss all
@@ -37,5 +40,8 @@ clean:
 	@make -C linkkit clean
 ifeq ($(CONFIG_MATTER_EN),y)
 	@make -C $(MATTER_BUILDDIR)/make clean
+endif
+ifeq ($(CONFIG_AMAZON_FREERTOS_EN),y)
+	@make -C $(AMAZON_FREERTOS_BUILDDIR)/make clean
 endif
 -include $(DEPS)

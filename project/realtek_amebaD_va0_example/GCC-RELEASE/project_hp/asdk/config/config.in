@@ -466,6 +466,7 @@ choice 'MBEDTLS Version'        "MBEDTLS_V_3_6_0   MBEDTLS_V_3_6_0_ENABLE \
 								 MBEDTLS_V_3_4_0   MBEDTLS_V_3_4_0_ENABLE \
 								 MBEDTLS_V_2_4_0   MBEDTLS_V_2_4_0_ENABLE \
 								 MBEDTLS_MATTER_DEFINED  MBEDTLS_MATTER_ENABLE \
+								 MBEDTLS_AMAZON_FREERTOS_DEFINED  MBEDTLS_AMAZON_FREERTOS_ENABLE \
 								 " 'MBEDTLS_V_2_4_0' 
 if [ "$MBEDTLS_V_3_6_0_ENABLE" = "y" ]; then
 choice 'MBEDTLS API'        "RAM   MBEDTLS_API_RAM_ENABLE \
@@ -507,6 +508,14 @@ if [ "$CONFIG_MATTER_EN" = "y" ]; then
 			define_bool CONFIG_MATTER_SECURE y
 		fi
 	fi
+fi
+endmenu
+
+mainmenu_option next_comment
+comment '< Amazon FreeRTOS Config '
+bool "Enable Amazon FreeRTOS"							CONFIG_AMAZON_FREERTOS_EN
+if [ "$CONFIG_AMAZON_FREERTOS_EN" = "y" ]; then
+	define_bool CONFIG_AMAZON_FREERTOS y
 fi
 endmenu
 

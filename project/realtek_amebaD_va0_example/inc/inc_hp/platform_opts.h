@@ -771,4 +771,8 @@ in lwip_opt.h for support uart adapter*/
 #include "platform_opts_matter.h"
 #endif /* CONFIG_MATTER */
 
+#if defined(CONFIG_AMAZON_FREERTOS) && CONFIG_AMAZON_FREERTOS
+#include "platform_opts_aws.h"
+#endif /* CONFIG_AMAZON_FREERTOS */
+
 #endif
